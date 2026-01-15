@@ -34,6 +34,14 @@
 
 ---
 
+## 🎬 Demo
+
+https://github.com/user-attachments/assets/auto-correct-demo.mp4
+
+<video src="auto-correct-demo.mp4" controls width="100%"></video>
+
+---
+
 ## ✨ Features
 
 🔍 **Real-time Detection** — Automatically detects spelling and grammar errors as you type
