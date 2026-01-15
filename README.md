@@ -1,113 +1,209 @@
-# AutoCorrect - Extension Chrome
+<p align="center">
+  <img src="public/icons/icon128.svg" width="80" height="80" alt="AutoCorrect Logo">
+</p>
 
-Extension Chrome pour la correction grammaticale et orthographique en temps réel, utilisant LanguageTool.
+<h1 align="center">AutoCorrect</h1>
 
-## Fonctionnalités
+<p align="center">
+  <strong>Real-time grammar & spelling correction for Chrome</strong>
+</p>
 
-- Détection automatique des erreurs d'orthographe et de grammaire
-- Soulignements visuels des erreurs (rouge pour orthographe, orange pour grammaire)
-- Suggestions de correction en un clic
-- Fonctionne sur tous les champs de texte (input, textarea, contenteditable)
-- Compatible avec les éditeurs riches comme CKEditor (Zendesk, etc.)
+<p align="center">
+  <a href="#features">Features</a> •
+  <a href="#installation">Installation</a> •
+  <a href="#how-it-works">How It Works</a> •
+  <a href="#development">Development</a> •
+  <a href="#api">API</a>
+</p>
 
-## Installation depuis le ZIP
+<p align="center">
+  <img src="https://img.shields.io/badge/Chrome-Extension-4285F4?style=for-the-badge&logo=googlechrome&logoColor=white" alt="Chrome Extension">
+  <img src="https://img.shields.io/badge/Manifest-V3-success?style=for-the-badge" alt="Manifest V3">
+  <img src="https://img.shields.io/badge/TypeScript-5.0-3178C6?style=for-the-badge&logo=typescript&logoColor=white" alt="TypeScript">
+  <img src="https://img.shields.io/badge/React-19-61DAFB?style=for-the-badge&logo=react&logoColor=black" alt="React">
+</p>
 
-### Télécharger et installer
+---
 
-1. **Téléchargez** le fichier `autocorrect-extension.zip` depuis les releases
-2. **Décompressez** le fichier ZIP dans un dossier de votre choix
-3. **Ouvrez Chrome** et allez à `chrome://extensions`
-4. **Activez le mode développeur** (toggle en haut à droite)
-5. **Cliquez sur "Charger l'extension non empaquetée"**
-6. **Sélectionnez** le dossier `dist` décompressé
+## ✨ Features
 
-### Configuration
+🔍 **Real-time Detection** — Automatically detects spelling and grammar errors as you type
 
-1. Cliquez sur l'icône de l'extension dans la barre d'outils
-2. L'extension est activée par défaut avec le serveur LanguageTool public
-3. Vous pouvez changer la langue (FR/EN/Auto) dans le popup
+🎯 **Smart Underlines** — Visual indicators with color coding:
+- 🔴 **Red** for spelling errors
+- 🟠 **Orange** for grammar mistakes
+- 🔵 **Blue** for style suggestions
 
-## Développement
+⚡ **One-Click Fix** — Click any underlined word to see suggestions and apply corrections instantly
 
-### Prérequis
+🚀 **Fix All** — Apply all corrections at once with a single button
+
+📊 **Score Dashboard** — Real-time quality score with detailed breakdown by error type
+
+🌍 **Multi-language** — Supports French, English, and auto-detection
+
+🔌 **Universal Compatibility** — Works everywhere:
+- Standard inputs & textareas
+- Rich text editors (CKEditor, TinyMCE)
+- Contenteditable elements
+- Zendesk, Gmail, Notion, and more
+
+---
+
+## 📦 Installation
+
+### From Release (Recommended)
+
+1. **Download** the latest `autocorrect-extension.zip` from [Releases](https://github.com/StanGirard/auto-correct/releases)
+2. **Unzip** the file to a folder
+3. **Open Chrome** and navigate to `chrome://extensions`
+4. **Enable** "Developer mode" (toggle in top right)
+5. **Click** "Load unpacked" and select the `dist` folder
+6. **Done!** The extension icon appears in your toolbar
+
+### From Source
+
+```bash
+# Clone the repository
+git clone https://github.com/StanGirard/auto-correct.git
+cd auto-correct
+
+# Install dependencies
+npm install
+
+# Build the extension
+npm run build
+
+# Load the dist/ folder in Chrome
+```
+
+---
+
+## 🎯 How It Works
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                                                         │
+│   You type: "Je vais au marche aujourdui"              │
+│                      ~~~~~~~  ~~~~~~~~~                 │
+│                         │         │                     │
+│                         ▼         ▼                     │
+│                     [marché]  [aujourd'hui]             │
+│                                                         │
+│   Click the underline → See suggestions → Apply fix    │
+│                                                         │
+└─────────────────────────────────────────────────────────┘
+```
+
+1. **Detection** — The extension monitors text fields on any webpage
+2. **Analysis** — Text is sent to LanguageTool API for grammar/spelling check
+3. **Display** — Errors are highlighted with colored wavy underlines
+4. **Correction** — Click to see suggestions, one more click to apply
+
+---
+
+## 🖥️ Popup Interface
+
+```
+┌─────────────────────────────────┐
+│  🔵 AutoCorrect        [FR ▼]  │
+├─────────────────────────────────┤
+│  Score  ████████░░░  78/100    │
+│                                 │
+│  🔴 2 spelling  🟠 1 grammar   │
+│                                 │
+│  Recommendation:                │
+│  aujourdui → aujourd'hui        │
+│                                 │
+│  [    ✓ Fix All (3)    ]       │
+├─────────────────────────────────┤
+│  • Error cards with details... │
+└─────────────────────────────────┘
+```
+
+---
+
+## 🛠️ Development
+
+### Prerequisites
 
 - Node.js 18+
-- npm ou yarn
+- npm or yarn
 
-### Installation des dépendances
-
-```bash
-npm install
-```
-
-### Développement
+### Commands
 
 ```bash
+# Development mode with hot reload
 npm run dev
-```
 
-### Build
-
-```bash
+# Production build
 npm run build
-```
 
-Le build génère les fichiers dans le dossier `dist/`.
-
-### Tests
-
-```bash
-# Lancer les tests
+# Run E2E tests (Playwright)
 npm test
 
-# Lancer les tests avec UI
+# Run tests with UI
 npm run test:ui
-
-# Lancer les tests en mode visible
-npm run test:headed
 ```
 
-## Structure du projet
+### Project Structure
 
 ```
 auto-correct/
 ├── src/
-│   ├── content/           # Content scripts (injection dans les pages)
-│   │   ├── index.ts       # Point d'entrée
-│   │   ├── text-field-manager.ts  # Gestion des champs de texte
-│   │   ├── underline-renderer.ts  # Rendu des soulignements
-│   │   └── language-tool-client.ts # Client API LanguageTool
-│   ├── popup/             # Interface popup
-│   │   ├── Popup.tsx      # Composant React principal
-│   │   └── index.html     # Page popup
-│   ├── background/        # Service worker
-│   └── shared/            # Types et utilitaires partagés
-├── public/
-│   └── manifest.json      # Manifest Chrome Extension v3
+│   ├── content/              # Content scripts (injected into pages)
+│   │   ├── text-field-manager.ts   # Field detection & correction
+│   │   ├── underline-renderer.ts   # Visual underlines & tooltips
+│   │   └── language-tool-client.ts # API client
+│   ├── popup/                # Extension popup UI
+│   │   └── Popup.tsx         # React component
+│   ├── background/           # Service worker
+│   └── shared/               # Shared types & utilities
 ├── tests/
-│   └── e2e/              # Tests Playwright
-├── dist/                  # Build output
-└── test/                  # Page de test locale
+│   └── e2e/                  # Playwright tests
+├── dist/                     # Built extension
+└── docker/                   # LanguageTool server config
 ```
 
-## API LanguageTool
+---
 
-L'extension utilise par défaut le serveur LanguageTool hébergé sur Fly.io:
-- URL: `https://languagetool-autocorrect.fly.dev`
+## 🌐 API
 
-Vous pouvez configurer votre propre serveur LanguageTool dans les paramètres.
+The extension uses [LanguageTool](https://languagetool.org/) for grammar checking.
 
-## Compatibilité
+**Default server:** `https://languagetool-autocorrect.fly.dev`
 
-- Chrome 88+
-- Manifest V3
-- Fonctionne sur:
-  - Champs input standard
-  - Textareas
-  - Éléments contenteditable
-  - CKEditor 5 (Zendesk, etc.)
-  - La plupart des éditeurs riches
+You can self-host your own LanguageTool server using the provided Docker configuration:
 
-## Licence
+```bash
+cd docker
+fly launch  # Deploy to Fly.io
+```
 
-MIT
+Or use the official LanguageTool API at `https://api.languagetool.org`
+
+---
+
+## 🧪 Tested Platforms
+
+| Platform | Status | Notes |
+|----------|--------|-------|
+| Standard inputs | ✅ | Full support |
+| Textareas | ✅ | Full support |
+| Contenteditable | ✅ | Full support |
+| CKEditor 5 | ✅ | Zendesk, etc. |
+| Gmail | ✅ | Compose window |
+| Google Docs | ⚠️ | Canvas-based, limited |
+| Notion | ✅ | Works with contenteditable |
+
+---
+
+## 📄 License
+
+MIT © [Stan Girard](https://github.com/StanGirard)
+
+---
+
+<p align="center">
+  <sub>Built with ❤️ using TypeScript, React, and Tailwind CSS</sub>
+</p>
