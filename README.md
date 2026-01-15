@@ -9,18 +9,27 @@
 </p>
 
 <p align="center">
-  <a href="#features">Features</a> •
-  <a href="#installation">Installation</a> •
-  <a href="#how-it-works">How It Works</a> •
-  <a href="#development">Development</a> •
-  <a href="#api">API</a>
-</p>
-
-<p align="center">
   <img src="https://img.shields.io/badge/Chrome-Extension-4285F4?style=for-the-badge&logo=googlechrome&logoColor=white" alt="Chrome Extension">
   <img src="https://img.shields.io/badge/Manifest-V3-success?style=for-the-badge" alt="Manifest V3">
   <img src="https://img.shields.io/badge/TypeScript-5.0-3178C6?style=for-the-badge&logo=typescript&logoColor=white" alt="TypeScript">
-  <img src="https://img.shields.io/badge/React-19-61DAFB?style=for-the-badge&logo=react&logoColor=black" alt="React">
+</p>
+
+---
+
+## ⚡ Quick Install (30 seconds)
+
+```
+1. Download → https://github.com/StanGirard/auto-correct/releases/latest
+2. Unzip the file
+3. Go to chrome://extensions → Enable "Developer mode"
+4. Click "Load unpacked" → Select the dist folder
+5. Done! ✅
+```
+
+<p align="center">
+  <a href="https://github.com/StanGirard/auto-correct/releases/latest">
+    <img src="https://img.shields.io/badge/⬇️_Download_Extension-blue?style=for-the-badge&logoColor=white" alt="Download">
+  </a>
 </p>
 
 ---
@@ -47,35 +56,6 @@
 - Rich text editors (CKEditor, TinyMCE)
 - Contenteditable elements
 - Zendesk, Gmail, Notion, and more
-
----
-
-## 📦 Installation
-
-### From Release (Recommended)
-
-1. **Download** the latest `autocorrect-extension.zip` from [Releases](https://github.com/StanGirard/auto-correct/releases)
-2. **Unzip** the file to a folder
-3. **Open Chrome** and navigate to `chrome://extensions`
-4. **Enable** "Developer mode" (toggle in top right)
-5. **Click** "Load unpacked" and select the `dist` folder
-6. **Done!** The extension icon appears in your toolbar
-
-### From Source
-
-```bash
-# Clone the repository
-git clone https://github.com/StanGirard/auto-correct.git
-cd auto-correct
-
-# Install dependencies
-npm install
-
-# Build the extension
-npm run build
-
-# Load the dist/ folder in Chrome
-```
 
 ---
 
