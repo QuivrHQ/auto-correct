@@ -1,0 +1,57 @@
+# fly.toml app configuration file generated for languagetool-autocorrect on 2026-01-15T18:10:47+01:00
+#
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+#
+
+app = 'languagetool-autocorrect'
+primary_region = 'cdg'
+
+[build]
+
+[env]
+  # Java Memory (75% rule for 8GB = 6GB)
+  Java_Xms = "4096m"
+  Java_Xmx = "6144m"
+
+  # Garbage Collector optimisé
+  langtool_GarbageCollector = "G1GC"
+
+  # Pipeline caching & prewarming (CRITIQUE)
+  langtool_pipelinePrewarming = "true"
+  langtool_pipelineCaching = "true"
+  langtool_maxPipelinePoolSize = "8"
+  langtool_pipelineExpireTimeInSeconds = "600"
+
+  # Result caching
+  langtool_cacheSize = "1000"
+  langtool_cacheTTLSeconds = "300"
+
+  # Limites
+  langtool_maxCheckTimeMillis = "60000"
+  langtool_maxCheckThreads = "4"
+
+[http_service]
+  internal_port = 8010
+  force_https = true
+  auto_stop_machines = 'suspend'
+  auto_start_machines = true
+  min_machines_running = 1
+  processes = ['app']
+
+  [http_service.concurrency]
+    type = "requests"
+    soft_limit = 50
+    hard_limit = 100
+
+[[http_service.checks]]
+  grace_period = "120s"
+  interval = "30s"
+  method = "GET"
+  path = "/v2/languages"
+  timeout = "10s"
+
+[[vm]]
+  memory = '8gb'
+  cpu_kind = 'performance'
+  cpus = 4
+  memory_mb = 8192
