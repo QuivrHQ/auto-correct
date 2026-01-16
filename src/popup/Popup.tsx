@@ -44,20 +44,6 @@ const TrashIcon = () => (
   </svg>
 )
 
-const EyeIcon = () => (
-  <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-    <path d="M1 7s2.5-4 6-4 6 4 6 4-2.5 4-6 4-6-4-6-4z"/>
-    <circle cx="7" cy="7" r="2"/>
-  </svg>
-)
-
-const BanIcon = () => (
-  <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5">
-    <circle cx="7" cy="7" r="6"/>
-    <path d="M2.75 11.25l8.5-8.5"/>
-  </svg>
-)
-
 // Summary Section Component
 function SummarySection({
   matches,
@@ -314,7 +300,7 @@ export function Popup() {
   }
 
   return (
-    <div className="w-80 bg-white font-sans antialiased">
+    <div className="w-[380px] bg-white font-sans antialiased">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
         <div className="flex items-center gap-2">
@@ -442,12 +428,26 @@ export function Popup() {
       )}
 
       {/* Error Cards */}
-      <div className="max-h-64 overflow-y-auto">
-        {/* Loading State */}
+      <div className="max-h-80 overflow-y-auto">
+        {/* Loading State - Skeleton Cards */}
         {loading && (
-          <div className="py-8 text-center">
-            <div className="w-8 h-8 mx-auto mb-3 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
-            <p className="text-sm text-gray-500">Analyse en cours...</p>
+          <div className="p-3 space-y-3">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="bg-white rounded-xl border border-gray-100 overflow-hidden animate-pulse">
+                <div className="flex items-center gap-2 px-3 py-2 bg-gray-50/50">
+                  <div className="w-2.5 h-2.5 rounded-full bg-gray-200" />
+                  <div className="h-4 w-20 bg-gray-200 rounded" />
+                </div>
+                <div className="px-3 py-2">
+                  <div className="h-5 w-24 bg-gray-200 rounded mb-2" />
+                  <div className="h-4 w-full bg-gray-100 rounded mb-3" />
+                  <div className="flex gap-1.5">
+                    <div className="h-8 w-16 bg-gray-200 rounded-lg" />
+                    <div className="h-8 w-20 bg-gray-200 rounded-lg" />
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
         )}
 
@@ -495,7 +495,7 @@ export function Popup() {
               {/* Error Content */}
               <div className="px-3 py-2">
                 {/* Error Word */}
-                <div className="flex items-center justify-between mb-2">
+                <div className="mb-2">
                   <span
                     className="text-base font-medium"
                     style={{
@@ -506,10 +506,6 @@ export function Popup() {
                   >
                     {match.errorText || match.shortMessage}
                   </span>
-                  <button className="flex items-center gap-1 text-xs text-gray-400 hover:text-blue-500 transition-colors">
-                    <EyeIcon />
-                    <span>Afficher</span>
-                  </button>
                 </div>
 
                 {/* Context */}
@@ -542,13 +538,7 @@ export function Popup() {
                 </div>
 
                 {/* Explanation */}
-                <p className="text-xs text-gray-500 mb-2">{match.message}</p>
-
-                {/* Ignore Rule */}
-                <button className="flex items-center gap-1 text-xs text-gray-400 hover:text-gray-600 transition-colors">
-                  <BanIcon />
-                  <span>Ignorer cette règle</span>
-                </button>
+                <p className="text-xs text-gray-500">{match.message}</p>
               </div>
             </div>
           )

@@ -65,6 +65,11 @@ export class UnderlineRenderer {
         cursor: pointer;
         pointer-events: auto;
         border-radius: 2px;
+        animation: highlightFadeIn 0.2s ease-out;
+      }
+      @keyframes highlightFadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
       }
       .error-highlight:hover {
         background: rgba(239, 68, 68, 0.1);
@@ -75,18 +80,18 @@ export class UnderlineRenderer {
         bottom: 0;
         left: 0;
         right: 0;
-        height: 2px;
+        height: 3px;
         background: currentColor;
-        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='6' height='3' viewBox='0 0 6 3'%3E%3Cpath d='M0 3 L1.5 0 L3 3 L4.5 0 L6 3' stroke='%23EF4444' fill='none' stroke-width='1'/%3E%3C/svg%3E");
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='4' viewBox='0 0 8 4'%3E%3Cpath d='M0 3 Q2 0 4 3 Q6 6 8 3' stroke='%23EF4444' fill='none' stroke-width='1.5'/%3E%3C/svg%3E");
         background-repeat: repeat-x;
         background-position: bottom;
-        background-size: 6px 3px;
+        background-size: 8px 4px;
       }
       .error-spelling::after {
-        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='6' height='3' viewBox='0 0 6 3'%3E%3Cpath d='M0 3 L1.5 0 L3 3 L4.5 0 L6 3' stroke='%23EF4444' fill='none' stroke-width='1'/%3E%3C/svg%3E");
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='4' viewBox='0 0 8 4'%3E%3Cpath d='M0 3 Q2 0 4 3 Q6 6 8 3' stroke='%23EF4444' fill='none' stroke-width='1.5'/%3E%3C/svg%3E");
       }
       .error-grammar::after {
-        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='6' height='3' viewBox='0 0 6 3'%3E%3Cpath d='M0 3 L1.5 0 L3 3 L4.5 0 L6 3' stroke='%23F59E0B' fill='none' stroke-width='1'/%3E%3C/svg%3E");
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='4' viewBox='0 0 8 4'%3E%3Cpath d='M0 3 Q2 0 4 3 Q6 6 8 3' stroke='%23F59E0B' fill='none' stroke-width='1.5'/%3E%3C/svg%3E");
       }
       .error-grammar:hover {
         background: rgba(245, 158, 11, 0.1);
