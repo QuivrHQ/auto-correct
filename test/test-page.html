@@ -270,7 +270,27 @@ Septième ligne avec fote aussi.</textarea>
     </div>
   </div>
 
-  <!-- Test 6: Grand document (chunking) -->
+  <!-- Test 6: Contenteditable multi-ligne (Zendesk-style) -->
+  <div class="test-section">
+    <h2><span class="status" id="status-ce-multiline"></span> Test 6: Contenteditable multi-ligne (style Zendesk)</h2>
+    <label>Div contenteditable avec plusieurs lignes (br)</label>
+    <div class="contenteditable" contenteditable="true" id="test-ce-multiline">Première ligne sans erreur.<br>Deuxième ligne avec erreures ici.<br>Troisième ligne avec testttt aussi.</div>
+    <div class="expected">
+      <strong>Attendu :</strong> "erreures" (ligne 2) et "testttt" (ligne 3) soulignés au bon endroit. Clic sur suggestion doit remplacer le texte correctement.
+    </div>
+  </div>
+
+  <!-- Test 7: Contenteditable multi-div (Gmail-style) -->
+  <div class="test-section">
+    <h2><span class="status" id="status-ce-gmail"></span> Test 7: Contenteditable multi-div (style Gmail)</h2>
+    <label>Div contenteditable avec divs imbriqués</label>
+    <div class="contenteditable" contenteditable="true" id="test-ce-gmail"><div>Bonjour,</div><div><br></div><div>Je vous écris pour signaler un problème.</div><div>Il y a des erreures dans le système.</div><div>Merci de votre compréhension.</div></div>
+    <div class="expected">
+      <strong>Attendu :</strong> "erreures" souligné au bon endroit (ligne 4). Le remplacement doit fonctionner correctement.
+    </div>
+  </div>
+
+  <!-- Test 8: Grand document (chunking) -->
   <div class="test-section">
     <h2><span class="status" id="status-large"></span> Test 6: Grand document (test du chunking 500 chars)</h2>
     <label for="test-large">Textarea avec beaucoup de texte (placez le curseur près d'une erreur)</label>

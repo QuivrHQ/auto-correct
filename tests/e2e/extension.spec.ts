@@ -258,4 +258,179 @@ test.describe('AutoCorrect Extension', () => {
       }
     })
   })
+
+  test.describe('Multi-line Contenteditable Replacement', () => {
+    test('replaces error on second line of contenteditable with br tags', async ({ context }) => {
+      const page = await context.newPage()
+      await page.goto(TEST_PAGE)
+
+      // Find the multi-line contenteditable (Zendesk-style)
+      const editable = page.locator('#test-ce-multiline')
+      await editable.click()
+
+      // Wait for detection
+      await page.waitForTimeout(DEBOUNCE_WAIT)
+
+      // There should be underlines for "erreures" and "testttt"
+      const underlines = page.locator('.autocorrect-underline')
+      const count = await underlines.count()
+      expect(count).toBeGreaterThanOrEqual(1)
+
+      // Click on the first underline (erreures on line 2)
+      await underlines.first().click()
+      await page.waitForTimeout(200)
+
+      // Click the suggestion
+      const suggestionBtn = page.locator('.autocorrect-suggestion-btn').first()
+      if (await suggestionBtn.isVisible()) {
+        await suggestionBtn.click()
+        await page.waitForTimeout(200)
+
+        // Verify the text was replaced correctly
+        const content = await editable.innerText()
+        // "erreures" should be replaced with "erreurs"
+        expect(content).toContain('erreurs')
+        expect(content).not.toContain('erreures')
+
+        // First line should still be intact
+        expect(content).toContain('Première ligne sans erreur')
+      }
+    })
+
+    test('replaces error on third line of contenteditable with br tags', async ({ context }) => {
+      const page = await context.newPage()
+      await page.goto(TEST_PAGE)
+
+      // Clear and set specific content
+      const editable = page.locator('#test-ce-multiline')
+      await editable.click()
+      await editable.evaluate((el: HTMLElement) => {
+        el.innerHTML = 'Line 1 ok<br>Line 2 ok<br>Line 3 testttt error'
+      })
+
+      // Wait for detection
+      await page.waitForTimeout(DEBOUNCE_WAIT)
+
+      // Click on the underline for "testttt"
+      const underlines = page.locator('.autocorrect-underline')
+      const count = await underlines.count()
+      expect(count).toBeGreaterThanOrEqual(1)
+
+      await underlines.first().click()
+      await page.waitForTimeout(200)
+
+      const suggestionBtn = page.locator('.autocorrect-suggestion-btn').first()
+      if (await suggestionBtn.isVisible()) {
+        await suggestionBtn.click()
+        await page.waitForTimeout(200)
+
+        const content = await editable.innerText()
+        // Verify line 3 was fixed and lines 1-2 are intact
+        expect(content).toContain('Line 1 ok')
+        expect(content).toContain('Line 2 ok')
+        expect(content).not.toContain('testttt')
+      }
+    })
+
+    test('replaces error in Gmail-style nested divs', async ({ context }) => {
+      const page = await context.newPage()
+      await page.goto(TEST_PAGE)
+
+      // Find the Gmail-style contenteditable
+      const editable = page.locator('#test-ce-gmail')
+      await editable.click()
+
+      // Wait for detection
+      await page.waitForTimeout(DEBOUNCE_WAIT)
+
+      // There should be an underline for "erreures"
+      const underlines = page.locator('.autocorrect-underline')
+      const count = await underlines.count()
+      expect(count).toBeGreaterThanOrEqual(1)
+
+      // Click on the underline
+      await underlines.first().click()
+      await page.waitForTimeout(200)
+
+      const suggestionBtn = page.locator('.autocorrect-suggestion-btn').first()
+      if (await suggestionBtn.isVisible()) {
+        await suggestionBtn.click()
+        await page.waitForTimeout(200)
+
+        const content = await editable.innerText()
+        // Verify the fix worked
+        expect(content).toContain('erreurs')
+        expect(content).not.toContain('erreures')
+
+        // Other lines should be intact
+        expect(content).toContain('Bonjour')
+        expect(content).toContain('Je vous écris')
+      }
+    })
+
+    test('maintains correct text structure after replacement', async ({ context }) => {
+      const page = await context.newPage()
+      await page.goto(TEST_PAGE)
+
+      const editable = page.locator('#test-ce-multiline')
+      await editable.click()
+      await editable.evaluate((el: HTMLElement) => {
+        el.innerHTML = 'Hello<br>This has erreures<br>Goodbye'
+      })
+
+      await page.waitForTimeout(DEBOUNCE_WAIT)
+
+      const underlines = page.locator('.autocorrect-underline')
+      if (await underlines.count() > 0) {
+        await underlines.first().click()
+        await page.waitForTimeout(200)
+
+        const suggestionBtn = page.locator('.autocorrect-suggestion-btn').first()
+        if (await suggestionBtn.isVisible()) {
+          await suggestionBtn.click()
+          await page.waitForTimeout(200)
+
+          const content = await editable.innerText()
+
+          // Verify all three lines exist
+          expect(content).toContain('Hello')
+          expect(content).toContain('Goodbye')
+          // The middle line should have been corrected
+          expect(content).toContain('erreurs')
+        }
+      }
+    })
+
+    test('handles multiple errors on different lines', async ({ context }) => {
+      const page = await context.newPage()
+      await page.goto(TEST_PAGE)
+
+      const editable = page.locator('#test-ce-simple')
+      await editable.click()
+      await editable.evaluate((el: HTMLElement) => {
+        el.innerHTML = 'First erreures<br>Second testttt<br>Third fote'
+      })
+
+      await page.waitForTimeout(DEBOUNCE_WAIT)
+
+      // Should have multiple underlines
+      const underlines = page.locator('.autocorrect-underline')
+      const initialCount = await underlines.count()
+      expect(initialCount).toBeGreaterThanOrEqual(2)
+
+      // Fix first error
+      await underlines.first().click()
+      await page.waitForTimeout(200)
+
+      const suggestionBtn = page.locator('.autocorrect-suggestion-btn').first()
+      if (await suggestionBtn.isVisible()) {
+        await suggestionBtn.click()
+        await page.waitForTimeout(DEBOUNCE_WAIT)
+
+        // After fixing, there should be fewer underlines
+        const newCount = await underlines.count()
+        expect(newCount).toBeLessThan(initialCount)
+      }
+    })
+  })
 })
