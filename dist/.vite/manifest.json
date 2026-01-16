@@ -5,48 +5,48 @@
     "src": "../../../../@crx/manifest",
     "isEntry": true
   },
-  "_index.ts-loader-DBHDfsY_.js": {
-    "file": "assets/index.ts-loader-DBHDfsY_.js",
-    "src": "_index.ts-loader-DBHDfsY_.js"
+  "_index.ts-loader-BU9o8a94.js": {
+    "file": "assets/index.ts-loader-BU9o8a94.js",
+    "src": "_index.ts-loader-BU9o8a94.js"
   },
   "_language-tool-client-B4BnbzYn.js": {
     "file": "assets/language-tool-client-B4BnbzYn.js",
     "name": "language-tool-client"
   },
-  "_storage-Lryb-ELa.js": {
-    "file": "assets/storage-Lryb-ELa.js",
+  "_storage-Dq_-2h6f.js": {
+    "file": "assets/storage-Dq_-2h6f.js",
     "name": "storage"
   },
   "src/background/service-worker.ts": {
-    "file": "assets/service-worker.ts-BF8zdjSu.js",
+    "file": "assets/service-worker.ts-CKIbTOxW.js",
     "name": "service-worker.ts",
     "src": "src/background/service-worker.ts",
     "isEntry": true,
     "imports": [
-      "_storage-Lryb-ELa.js"
+      "_storage-Dq_-2h6f.js"
     ]
   },
   "src/content/index.ts": {
-    "file": "assets/index.ts-BK3WYvD8.js",
+    "file": "assets/index.ts-DIhy38NR.js",
     "name": "index.ts",
     "src": "src/content/index.ts",
     "isEntry": true,
     "imports": [
-      "_storage-Lryb-ELa.js",
+      "_storage-Dq_-2h6f.js",
       "_language-tool-client-B4BnbzYn.js"
     ]
   },
   "src/popup/index.html": {
-    "file": "assets/popup-ydetcV_A.js",
+    "file": "assets/popup-DN0C-IKo.js",
     "name": "popup",
     "src": "src/popup/index.html",
     "isEntry": true,
     "imports": [
-      "_storage-Lryb-ELa.js",
+      "_storage-Dq_-2h6f.js",
       "_language-tool-client-B4BnbzYn.js"
     ],
     "css": [
-      "assets/popup-BcsxA_mo.css"
+      "assets/popup-n97obyUf.css"
     ]
   }
 }

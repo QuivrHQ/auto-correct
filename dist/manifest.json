@@ -27,7 +27,7 @@
   "content_scripts": [
     {
       "js": [
-        "assets/index.ts-loader-DBHDfsY_.js"
+        "assets/index.ts-loader-BU9o8a94.js"
       ],
       "matches": [
         "<all_urls>"
@@ -42,9 +42,9 @@
         "<all_urls>"
       ],
       "resources": [
-        "assets/storage-Lryb-ELa.js",
+        "assets/storage-Dq_-2h6f.js",
         "assets/language-tool-client-B4BnbzYn.js",
-        "assets/index.ts-BK3WYvD8.js"
+        "assets/index.ts-DIhy38NR.js"
       ],
       "use_dynamic_url": false
     }
