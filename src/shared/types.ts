@@ -36,12 +36,14 @@ export interface Settings {
   enabled: boolean
   language: 'auto' | 'fr' | 'en'
   apiUrl: string
+  personalDictionary: string[]
 }
 
 export const DEFAULT_SETTINGS: Settings = {
   enabled: true,
   language: 'auto',
-  apiUrl: 'https://languagetool-autocorrect.fly.dev'
+  apiUrl: 'https://languagetool-autocorrect.fly.dev',
+  personalDictionary: []
 }
 
 export type MessageType =

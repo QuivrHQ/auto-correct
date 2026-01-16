@@ -2,6 +2,7 @@ import { Settings, LanguageToolMatch } from '../shared/types'
 import { checkText } from './language-tool-client'
 import { UnderlineRenderer } from './underline-renderer'
 import { findRangeInDOM } from './position-map'
+import { addToDictionary } from '../shared/storage'
 import type { Message, MatchesResponseMessage, ApplySuggestionMessage } from '../shared/messaging'
 
 interface ManagedField {
@@ -25,6 +26,14 @@ export function setSettings(settings: Settings): void {
   if (!settings.enabled) {
     document.querySelectorAll('.autocorrect-overlay').forEach(el => el.remove())
   }
+
+  // Update dictionary for all managed fields
+  document.querySelectorAll('input, textarea, [contenteditable]:not([contenteditable="false"])').forEach(el => {
+    const field = managedFields.get(el)
+    if (field) {
+      field.renderer.setDictionary(settings.personalDictionary || [])
+    }
+  })
 }
 
 function isEditableElement(element: Element): element is HTMLInputElement | HTMLTextAreaElement | HTMLElement {
@@ -346,11 +355,18 @@ function attachToField(element: HTMLInputElement | HTMLTextAreaElement | HTMLEle
     onReplace: (match: LanguageToolMatch, replacement: string) => {
       setTextContent(element, match.offset, match.length, replacement)
     },
-    onIgnore: (_match: LanguageToolMatch) => {
-      // The renderer handles removing the underline
-      // We could also store ignored matches persistently here
+    onIgnore: (match: LanguageToolMatch) => {
+      // Add word to personal dictionary
+      const text = getTextContent(element)
+      const matchedText = text.substring(match.offset, match.offset + match.length)
+      addToDictionary(matchedText)
     },
   })
+
+  // Initialize dictionary from current settings
+  if (currentSettings?.personalDictionary) {
+    renderer.setDictionary(currentSettings.personalDictionary)
+  }
 
   managedFields.set(element, field)
 

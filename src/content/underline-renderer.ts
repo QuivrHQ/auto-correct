@@ -30,10 +30,13 @@ export class UnderlineRenderer {
   private element: HTMLInputElement | HTMLTextAreaElement | HTMLElement
   private overlay: HTMLDivElement | null = null
   private shadowRoot: ShadowRoot | null = null
+  private tooltipContainer: HTMLDivElement | null = null
+  private tooltipShadowRoot: ShadowRoot | null = null
   private resizeObserver: ResizeObserver | null = null
   private tooltip: HTMLDivElement | null = null
   private currentMatches: LanguageToolMatch[] = []
   private ignoredMatches: Set<string> = new Set()
+  private personalDictionary: Set<string> = new Set()
   private callbacks: TooltipCallbacks | null = null
   private boundHideTooltip: (e: Event) => void
   private useCustomHighlights: boolean = false
@@ -74,6 +77,17 @@ export class UnderlineRenderer {
         text-decoration-skip-ink: none;
         text-underline-offset: 2px;
       }
+      @media (prefers-color-scheme: dark) {
+        ::highlight(autocorrect-spelling) {
+          text-decoration-color: #F87171;
+        }
+        ::highlight(autocorrect-grammar) {
+          text-decoration-color: #FBBF24;
+        }
+        ::highlight(autocorrect-style) {
+          text-decoration-color: #60A5FA;
+        }
+      }
     `)
     document.adoptedStyleSheets = [...document.adoptedStyleSheets, this.highlightStyleSheet]
   }
@@ -82,6 +96,10 @@ export class UnderlineRenderer {
     this.callbacks = callbacks
     this.createOverlay()
     this.setupObservers()
+  }
+
+  setDictionary(words: string[]): void {
+    this.personalDictionary = new Set(words.map(w => w.toLowerCase()))
   }
 
   private createOverlay(): void {
@@ -98,9 +116,43 @@ export class UnderlineRenderer {
 
     const style = document.createElement('style')
     style.textContent = `
+      @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&display=swap');
+
       :host {
         all: initial;
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+        /* Light mode - warm editorial palette */
+        --ac-cream: #FAF8F5;
+        --ac-paper: #FFFFFF;
+        --ac-ink: #1A1612;
+        --ac-ink-soft: #4A4540;
+        --ac-ink-muted: #8A857D;
+        --ac-border: #E8E4DE;
+        --ac-border-soft: #F2EFEA;
+        --ac-coral: #E85D4C;
+        --ac-coral-soft: #FEF2F0;
+        --ac-amber: #D4940A;
+        --ac-amber-soft: #FDF8EC;
+        --ac-indigo: #5B6AD0;
+        --ac-indigo-soft: #F3F4FC;
+      }
+
+      @media (prefers-color-scheme: dark) {
+        :host {
+          --ac-cream: #1A1612;
+          --ac-paper: #242019;
+          --ac-ink: #FAF8F5;
+          --ac-ink-soft: #C9C4BC;
+          --ac-ink-muted: #7A756D;
+          --ac-border: #3A352D;
+          --ac-border-soft: #2A2620;
+          --ac-coral: #F08070;
+          --ac-coral-soft: #2D201E;
+          --ac-amber: #E8A820;
+          --ac-amber-soft: #2A2418;
+          --ac-indigo: #7B8AE0;
+          --ac-indigo-soft: #1E2030;
+        }
       }
 
       /* Error underlines - now clickable */
@@ -117,7 +169,7 @@ export class UnderlineRenderer {
         to { opacity: 1; }
       }
       .error-highlight:hover {
-        background: rgba(239, 68, 68, 0.1);
+        background: rgba(232, 93, 76, 0.08);
       }
       .error-highlight::after {
         content: '';
@@ -126,44 +178,58 @@ export class UnderlineRenderer {
         left: 0;
         right: 0;
         height: 3px;
-        background: currentColor;
-        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='4' viewBox='0 0 8 4'%3E%3Cpath d='M0 3 Q2 0 4 3 Q6 6 8 3' stroke='%23EF4444' fill='none' stroke-width='1.5'/%3E%3C/svg%3E");
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='4' viewBox='0 0 8 4'%3E%3Cpath d='M0 3 Q2 0 4 3 Q6 6 8 3' stroke='%23E85D4C' fill='none' stroke-width='1.5'/%3E%3C/svg%3E");
         background-repeat: repeat-x;
         background-position: bottom;
         background-size: 8px 4px;
       }
       .error-spelling::after {
-        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='4' viewBox='0 0 8 4'%3E%3Cpath d='M0 3 Q2 0 4 3 Q6 6 8 3' stroke='%23EF4444' fill='none' stroke-width='1.5'/%3E%3C/svg%3E");
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='4' viewBox='0 0 8 4'%3E%3Cpath d='M0 3 Q2 0 4 3 Q6 6 8 3' stroke='%23E85D4C' fill='none' stroke-width='1.5'/%3E%3C/svg%3E");
+      }
+      @media (prefers-color-scheme: dark) {
+        .error-spelling::after {
+          background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='4' viewBox='0 0 8 4'%3E%3Cpath d='M0 3 Q2 0 4 3 Q6 6 8 3' stroke='%23F08070' fill='none' stroke-width='1.5'/%3E%3C/svg%3E");
+        }
       }
       .error-grammar::after {
-        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='4' viewBox='0 0 8 4'%3E%3Cpath d='M0 3 Q2 0 4 3 Q6 6 8 3' stroke='%23F59E0B' fill='none' stroke-width='1.5'/%3E%3C/svg%3E");
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='4' viewBox='0 0 8 4'%3E%3Cpath d='M0 3 Q2 0 4 3 Q6 6 8 3' stroke='%23D4940A' fill='none' stroke-width='1.5'/%3E%3C/svg%3E");
+      }
+      @media (prefers-color-scheme: dark) {
+        .error-grammar::after {
+          background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='4' viewBox='0 0 8 4'%3E%3Cpath d='M0 3 Q2 0 4 3 Q6 6 8 3' stroke='%23E8A820' fill='none' stroke-width='1.5'/%3E%3C/svg%3E");
+        }
       }
       .error-grammar:hover {
-        background: rgba(245, 158, 11, 0.1);
+        background: rgba(212, 148, 10, 0.08);
       }
 
-      /* Tooltip */
+      /* Tooltip - refined editorial design */
       .tooltip {
         position: fixed;
-        background: white;
-        border-radius: 12px;
-        box-shadow: 0 4px 24px rgba(0, 0, 0, 0.12), 0 0 0 1px rgba(0, 0, 0, 0.05);
+        background: var(--ac-paper);
+        border-radius: 16px;
+        box-shadow: 0 8px 32px rgba(26, 22, 18, 0.12), 0 0 0 1px var(--ac-border-soft);
         padding: 0;
-        min-width: 240px;
-        max-width: 320px;
+        min-width: 260px;
+        max-width: 340px;
         z-index: 2147483647;
-        animation: tooltipIn 0.15s ease-out;
+        animation: tooltipIn 0.2s cubic-bezier(0.22, 1, 0.36, 1);
         overflow: hidden;
         pointer-events: auto;
+      }
+      @media (prefers-color-scheme: dark) {
+        .tooltip {
+          box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), 0 0 0 1px var(--ac-border);
+        }
       }
       @keyframes tooltipIn {
         from {
           opacity: 0;
-          transform: translateY(-4px);
+          transform: translateY(-8px) scale(0.96);
         }
         to {
           opacity: 1;
-          transform: translateY(0);
+          transform: translateY(0) scale(1);
         }
       }
 
@@ -171,101 +237,380 @@ export class UnderlineRenderer {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        padding: 10px 12px;
-        background: #FAFAFA;
-        border-bottom: 1px solid #F0F0F0;
+        padding: 12px 14px;
+        border-bottom: 1px solid var(--ac-border-soft);
       }
-      .tooltip-category {
-        display: flex;
+
+      .category-badge {
+        display: inline-flex;
         align-items: center;
-        gap: 8px;
-        font-weight: 600;
-        font-size: 13px;
-        color: #374151;
+        gap: 6px;
+        padding: 4px 10px;
+        border-radius: 20px;
+        font-weight: 500;
+        font-size: 12px;
       }
-      .category-dot {
-        width: 8px;
-        height: 8px;
+      .category-badge.spelling {
+        background: var(--ac-coral-soft);
+        color: var(--ac-coral);
+      }
+      .category-badge.grammar {
+        background: var(--ac-amber-soft);
+        color: var(--ac-amber);
+      }
+      .category-badge.style {
+        background: var(--ac-indigo-soft);
+        color: var(--ac-indigo);
+      }
+      .category-badge .dot {
+        width: 6px;
+        height: 6px;
         border-radius: 50%;
+        background: currentColor;
       }
-      .category-dot.spelling { background: #EF4444; }
-      .category-dot.grammar { background: #F59E0B; }
-      .category-dot.style { background: #3B82F6; }
 
       .tooltip-close {
-        width: 24px;
-        height: 24px;
+        width: 28px;
+        height: 28px;
         display: flex;
         align-items: center;
         justify-content: center;
         border: none;
         background: transparent;
-        color: #9CA3AF;
+        color: var(--ac-ink-muted);
         cursor: pointer;
-        border-radius: 4px;
-        transition: all 0.15s;
+        border-radius: 8px;
+        transition: all 0.15s ease;
       }
       .tooltip-close:hover {
-        background: #E5E7EB;
-        color: #374151;
+        background: var(--ac-border-soft);
+        color: var(--ac-ink-soft);
       }
 
       .tooltip-body {
-        padding: 12px;
+        padding: 14px;
       }
       .tooltip-message {
-        color: #4B5563;
+        color: var(--ac-ink-soft);
         font-size: 13px;
-        line-height: 1.5;
-        margin-bottom: 12px;
+        line-height: 1.55;
+        margin-bottom: 14px;
       }
 
       .tooltip-suggestions {
         display: flex;
         flex-wrap: wrap;
-        gap: 6px;
+        gap: 8px;
+        margin-bottom: 12px;
       }
       .suggestion-btn {
-        padding: 7px 14px;
-        background: #3B82F6;
-        color: white;
+        padding: 8px 16px;
+        background: var(--ac-ink);
+        color: var(--ac-paper);
         border: none;
-        border-radius: 8px;
+        border-radius: 10px;
         font-size: 13px;
         font-weight: 500;
         cursor: pointer;
-        transition: all 0.15s;
+        transition: all 0.15s ease;
         pointer-events: auto;
       }
       .suggestion-btn:hover {
-        background: #2563EB;
         transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(26, 22, 18, 0.15);
       }
       .suggestion-btn:active {
         transform: translateY(0);
       }
+      .suggestion-btn.secondary {
+        background: transparent;
+        color: var(--ac-ink);
+        border: 1px solid var(--ac-border);
+      }
+      .suggestion-btn.secondary:hover {
+        background: var(--ac-border-soft);
+        box-shadow: none;
+        transform: none;
+      }
 
-      .ignore-btn {
-        padding: 7px 14px;
-        background: white;
-        color: #6B7280;
-        border: 1px solid #E5E7EB;
+      .tooltip-actions {
+        display: flex;
+        gap: 8px;
+        padding-top: 12px;
+        border-top: 1px solid var(--ac-border-soft);
+      }
+      .action-btn {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        padding: 8px 12px;
+        background: transparent;
+        color: var(--ac-ink-muted);
+        border: 1px solid var(--ac-border);
         border-radius: 8px;
-        font-size: 13px;
+        font-size: 12px;
         font-weight: 500;
         cursor: pointer;
-        transition: all 0.15s;
+        transition: all 0.15s ease;
         pointer-events: auto;
       }
-      .ignore-btn:hover {
-        background: #F9FAFB;
-        border-color: #D1D5DB;
+      .action-btn:hover {
+        background: var(--ac-border-soft);
+        color: var(--ac-ink-soft);
+        border-color: var(--ac-border);
+      }
+      .action-btn.dictionary:hover {
+        background: var(--ac-indigo-soft);
+        color: var(--ac-indigo);
+        border-color: var(--ac-indigo-soft);
+      }
+      .action-btn svg {
+        width: 14px;
+        height: 14px;
       }
     `
     this.shadowRoot.appendChild(style)
 
     document.body.appendChild(this.overlay)
     this.updatePosition()
+
+    // Create a separate tooltip container using a custom HTML element
+    // This follows LanguageTool's approach: custom elements avoid browser default styles
+    // and when appended directly to document.body with position:fixed, they escape
+    // any stacking context issues from parent elements
+    this.tooltipContainer = document.createElement('autocorrect-tooltip-portal') as HTMLDivElement
+    this.tooltipContainer.style.cssText = `
+      display: block !important;
+      position: fixed !important;
+      top: 0 !important;
+      left: 0 !important;
+      width: 0 !important;
+      height: 0 !important;
+      overflow: visible !important;
+      z-index: 2147483647 !important;
+      pointer-events: none !important;
+    `
+    this.tooltipShadowRoot = this.tooltipContainer.attachShadow({ mode: 'open' })
+
+    // Add tooltip styles to the tooltip shadow root
+    const tooltipStyle = document.createElement('style')
+    tooltipStyle.textContent = this.getTooltipStyles()
+    this.tooltipShadowRoot.appendChild(tooltipStyle)
+
+    document.body.appendChild(this.tooltipContainer)
+  }
+
+  private getTooltipStyles(): string {
+    return `
+      @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&display=swap');
+
+      :host {
+        all: initial;
+        font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+        /* Light mode - warm editorial palette */
+        --ac-cream: #FAF8F5;
+        --ac-paper: #FFFFFF;
+        --ac-ink: #1A1612;
+        --ac-ink-soft: #4A4540;
+        --ac-ink-muted: #8A857D;
+        --ac-border: #E8E4DE;
+        --ac-border-soft: #F2EFEA;
+        --ac-coral: #E85D4C;
+        --ac-coral-soft: #FEF2F0;
+        --ac-amber: #D4940A;
+        --ac-amber-soft: #FDF8EC;
+        --ac-indigo: #5B6AD0;
+        --ac-indigo-soft: #F3F4FC;
+      }
+
+      @media (prefers-color-scheme: dark) {
+        :host {
+          --ac-cream: #1A1612;
+          --ac-paper: #242019;
+          --ac-ink: #FAF8F5;
+          --ac-ink-soft: #C9C4BC;
+          --ac-ink-muted: #7A756D;
+          --ac-border: #3A352D;
+          --ac-border-soft: #2A2620;
+          --ac-coral: #F08070;
+          --ac-coral-soft: #2D201E;
+          --ac-amber: #E8A820;
+          --ac-amber-soft: #2A2418;
+          --ac-indigo: #7B8AE0;
+          --ac-indigo-soft: #1E2030;
+        }
+      }
+
+      /* Tooltip - refined editorial design */
+      .tooltip {
+        position: fixed;
+        background: var(--ac-paper);
+        border-radius: 16px;
+        box-shadow: 0 8px 32px rgba(26, 22, 18, 0.12), 0 0 0 1px var(--ac-border-soft);
+        padding: 0;
+        min-width: 260px;
+        max-width: 340px;
+        z-index: 2147483647;
+        animation: tooltipIn 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+        overflow: hidden;
+        pointer-events: auto;
+      }
+      @media (prefers-color-scheme: dark) {
+        .tooltip {
+          box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), 0 0 0 1px var(--ac-border);
+        }
+      }
+      @keyframes tooltipIn {
+        from {
+          opacity: 0;
+          transform: translateY(-8px) scale(0.96);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0) scale(1);
+        }
+      }
+
+      .tooltip-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 12px 14px;
+        border-bottom: 1px solid var(--ac-border-soft);
+      }
+
+      .category-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 4px 10px;
+        border-radius: 20px;
+        font-weight: 500;
+        font-size: 12px;
+      }
+      .category-badge.spelling {
+        background: var(--ac-coral-soft);
+        color: var(--ac-coral);
+      }
+      .category-badge.grammar {
+        background: var(--ac-amber-soft);
+        color: var(--ac-amber);
+      }
+      .category-badge.style {
+        background: var(--ac-indigo-soft);
+        color: var(--ac-indigo);
+      }
+      .category-badge .dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: currentColor;
+      }
+
+      .tooltip-close {
+        width: 28px;
+        height: 28px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border: none;
+        background: transparent;
+        color: var(--ac-ink-muted);
+        cursor: pointer;
+        border-radius: 8px;
+        transition: all 0.15s ease;
+      }
+      .tooltip-close:hover {
+        background: var(--ac-border-soft);
+        color: var(--ac-ink-soft);
+      }
+
+      .tooltip-body {
+        padding: 14px;
+      }
+      .tooltip-message {
+        color: var(--ac-ink-soft);
+        font-size: 13px;
+        line-height: 1.55;
+        margin-bottom: 14px;
+      }
+
+      .tooltip-suggestions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-bottom: 12px;
+      }
+      .suggestion-btn {
+        padding: 8px 16px;
+        background: var(--ac-ink);
+        color: var(--ac-paper);
+        border: none;
+        border-radius: 10px;
+        font-size: 13px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.15s ease;
+        pointer-events: auto;
+      }
+      .suggestion-btn:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(26, 22, 18, 0.15);
+      }
+      .suggestion-btn:active {
+        transform: translateY(0);
+      }
+      .suggestion-btn.secondary {
+        background: transparent;
+        color: var(--ac-ink);
+        border: 1px solid var(--ac-border);
+      }
+      .suggestion-btn.secondary:hover {
+        background: var(--ac-border-soft);
+        box-shadow: none;
+        transform: none;
+      }
+
+      .tooltip-actions {
+        display: flex;
+        gap: 8px;
+        padding-top: 12px;
+        border-top: 1px solid var(--ac-border-soft);
+      }
+      .action-btn {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        padding: 8px 12px;
+        background: transparent;
+        color: var(--ac-ink-muted);
+        border: 1px solid var(--ac-border);
+        border-radius: 8px;
+        font-size: 12px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.15s ease;
+        pointer-events: auto;
+      }
+      .action-btn:hover {
+        background: var(--ac-border-soft);
+        color: var(--ac-ink-soft);
+        border-color: var(--ac-border);
+      }
+      .action-btn.dictionary:hover {
+        background: var(--ac-indigo-soft);
+        color: var(--ac-indigo);
+        border-color: var(--ac-indigo-soft);
+      }
+      .action-btn svg {
+        width: 14px;
+        height: 14px;
+      }
+    `
   }
 
   private setupObservers(): void {
@@ -310,10 +655,16 @@ export class UnderlineRenderer {
     this.currentMatches = matches
     this.hideTooltip()
 
-    // Filter ignored matches
+    // Filter ignored matches and dictionary words
     const activeMatches = matches.filter(match => {
       const matchKey = `${match.offset}-${match.length}-${match.rule.id}`
-      return !this.ignoredMatches.has(matchKey)
+      if (this.ignoredMatches.has(matchKey)) return false
+
+      // Filter out words in personal dictionary
+      const matchedText = text.substring(match.offset, match.offset + match.length).toLowerCase()
+      if (this.personalDictionary.has(matchedText)) return false
+
+      return true
     })
 
     console.log('[AutoCorrect] Rendering', activeMatches.length, 'matches (useCustomHighlights:', this.useCustomHighlights, ')')
@@ -570,7 +921,7 @@ export class UnderlineRenderer {
   private showTooltip(match: LanguageToolMatch, clickX: number, clickY: number, pos: TextPosition): void {
     this.hideTooltip()
 
-    if (!this.shadowRoot) return
+    if (!this.tooltipShadowRoot) return
 
     const categoryInfo = this.getCategoryInfo(match)
 
@@ -590,11 +941,14 @@ export class UnderlineRenderer {
     this.tooltip.style.left = `${Math.min(clickX - 20, window.innerWidth - 340)}px`
     this.tooltip.style.top = `${top}px`
 
-    // Build tooltip HTML
+    // Get the matched text for dictionary functionality
+    const matchedText = this.getElementText().substring(match.offset, match.offset + match.length)
+
+    // Build tooltip HTML with new editorial design
     this.tooltip.innerHTML = `
       <div class="tooltip-header">
-        <div class="tooltip-category">
-          <span class="category-dot ${categoryInfo.class}"></span>
+        <div class="category-badge ${categoryInfo.class}">
+          <span class="dot"></span>
           <span>${categoryInfo.name}</span>
         </div>
         <button class="tooltip-close" aria-label="Fermer">
@@ -606,10 +960,24 @@ export class UnderlineRenderer {
       <div class="tooltip-body">
         <p class="tooltip-message">${match.message}</p>
         <div class="tooltip-suggestions">
-          ${match.replacements.slice(0, 3).map(r =>
-            `<button class="suggestion-btn" data-replacement="${this.escapeHtml(r.value)}">${this.escapeHtml(r.value)}</button>`
+          ${match.replacements.slice(0, 3).map((r, i) =>
+            `<button class="suggestion-btn${i > 0 ? ' secondary' : ''}" data-replacement="${this.escapeHtml(r.value)}">${this.escapeHtml(r.value)}</button>`
           ).join('')}
-          <button class="ignore-btn">Ignorer</button>
+        </div>
+        <div class="tooltip-actions">
+          <button class="action-btn ignore-btn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M18.36 6.64A9 9 0 1 1 5.64 6.64 9 9 0 0 1 18.36 6.64Z"/>
+              <path d="M6 6l12 12"/>
+            </svg>
+            Ignorer
+          </button>
+          <button class="action-btn dictionary dictionary-btn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/>
+            </svg>
+            Dictionnaire
+          </button>
         </div>
       </div>
     `
@@ -638,7 +1006,16 @@ export class UnderlineRenderer {
       this.render(this.currentMatches, this.getElementText())
     })
 
-    this.shadowRoot.appendChild(this.tooltip)
+    this.tooltip.querySelector('.dictionary-btn')?.addEventListener('click', () => {
+      // Add to personal dictionary (the callback will persist it)
+      this.personalDictionary.add(matchedText.toLowerCase())
+      this.callbacks?.onIgnore(match)
+      this.hideTooltip()
+      // Re-render to hide errors for this word
+      this.render(this.currentMatches, this.getElementText())
+    })
+
+    this.tooltipShadowRoot.appendChild(this.tooltip)
 
     // Add click outside listener (use bubble phase, not capture)
     setTimeout(() => {
@@ -826,6 +1203,11 @@ export class UnderlineRenderer {
     }
     if (this.overlay) {
       this.overlay.remove()
+    }
+    if (this.tooltipContainer) {
+      this.tooltipContainer.remove()
+      this.tooltipContainer = null
+      this.tooltipShadowRoot = null
     }
 
     // Remove the CSS Custom Highlights stylesheet
