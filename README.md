@@ -15,7 +15,7 @@
 </p>
 
 <p align="center">
-  <img src="public/demo-auto-correct.gif" alt="AutoCorrect Demo" width="700" />
+  <img src="./demo-auto-correct.gif" alt="AutoCorrect Demo" width="700" />
 </p>
 
 <p align="center">
