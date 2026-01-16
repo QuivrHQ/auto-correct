@@ -1,300 +1,344 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="fr">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AutoCorrect - Page de Test</title>
-  <style>
-    * {
-      box-sizing: border-box;
-    }
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      max-width: 900px;
-      margin: 0 auto;
-      padding: 20px;
-      background: #f5f5f5;
-    }
-    h1 {
-      color: #1a1a1a;
-      border-bottom: 2px solid #3B82F6;
-      padding-bottom: 10px;
-    }
-    h2 {
-      color: #333;
-      margin-top: 30px;
-      font-size: 1.1em;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-    .status {
-      display: inline-block;
-      width: 12px;
-      height: 12px;
-      border-radius: 50%;
-      background: #ccc;
-    }
-    .status.pass { background: #22c55e; }
-    .status.fail { background: #ef4444; }
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AutoCorrect - Page de Test</title>
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        max-width: 900px;
+        margin: 0 auto;
+        padding: 20px;
+        background: #f5f5f5;
+      }
+      h1 {
+        color: #1a1a1a;
+        border-bottom: 2px solid #3b82f6;
+        padding-bottom: 10px;
+      }
+      h2 {
+        color: #333;
+        margin-top: 30px;
+        font-size: 1.1em;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .status {
+        display: inline-block;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background: #ccc;
+      }
+      .status.pass {
+        background: #22c55e;
+      }
+      .status.fail {
+        background: #ef4444;
+      }
 
-    .test-section {
-      background: white;
-      padding: 20px;
-      border-radius: 12px;
-      margin-bottom: 20px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-    }
+      .test-section {
+        background: white;
+        padding: 20px;
+        border-radius: 12px;
+        margin-bottom: 20px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+      }
 
-    label {
-      display: block;
-      font-weight: 600;
-      color: #555;
-      margin-bottom: 8px;
-    }
+      label {
+        display: block;
+        font-weight: 600;
+        color: #555;
+        margin-bottom: 8px;
+      }
 
-    input[type="text"] {
-      width: 100%;
-      padding: 12px 16px;
-      font-size: 16px;
-      border: 2px solid #e5e7eb;
-      border-radius: 8px;
-      transition: border-color 0.2s;
-    }
-    input[type="text"]:focus {
-      outline: none;
-      border-color: #3B82F6;
-    }
+      input[type='text'] {
+        width: 100%;
+        padding: 12px 16px;
+        font-size: 16px;
+        border: 2px solid #e5e7eb;
+        border-radius: 8px;
+        transition: border-color 0.2s;
+      }
+      input[type='text']:focus {
+        outline: none;
+        border-color: #3b82f6;
+      }
 
-    textarea {
-      width: 100%;
-      padding: 12px 16px;
-      font-size: 16px;
-      border: 2px solid #e5e7eb;
-      border-radius: 8px;
-      resize: vertical;
-      font-family: inherit;
-      line-height: 1.5;
-    }
-    textarea:focus {
-      outline: none;
-      border-color: #3B82F6;
-    }
+      textarea {
+        width: 100%;
+        padding: 12px 16px;
+        font-size: 16px;
+        border: 2px solid #e5e7eb;
+        border-radius: 8px;
+        resize: vertical;
+        font-family: inherit;
+        line-height: 1.5;
+      }
+      textarea:focus {
+        outline: none;
+        border-color: #3b82f6;
+      }
 
-    .contenteditable {
-      width: 100%;
-      min-height: 100px;
-      padding: 12px 16px;
-      font-size: 16px;
-      border: 2px solid #e5e7eb;
-      border-radius: 8px;
-      background: white;
-      line-height: 1.5;
-    }
-    .contenteditable:focus {
-      outline: none;
-      border-color: #3B82F6;
-    }
+      .contenteditable {
+        width: 100%;
+        min-height: 100px;
+        padding: 12px 16px;
+        font-size: 16px;
+        border: 2px solid #e5e7eb;
+        border-radius: 8px;
+        background: white;
+        line-height: 1.5;
+      }
+      .contenteditable:focus {
+        outline: none;
+        border-color: #3b82f6;
+      }
 
-    .contenteditable-styled {
-      width: 100%;
-      min-height: 120px;
-      padding: 12px 16px;
-      font-size: 16px;
-      border: 2px solid #e5e7eb;
-      border-radius: 8px;
-      background: #fafafa;
-      line-height: 1.6;
-    }
-    .contenteditable-styled:focus {
-      outline: none;
-      border-color: #3B82F6;
-    }
-    .contenteditable-styled strong {
-      color: #1a1a1a;
-      font-weight: 700;
-    }
-    .contenteditable-styled em {
-      color: #666;
-      font-style: italic;
-    }
-    .contenteditable-styled code {
-      background: #f0f0f0;
-      padding: 2px 6px;
-      border-radius: 4px;
-      font-family: monospace;
-      font-size: 0.9em;
-    }
+      .contenteditable-styled {
+        width: 100%;
+        min-height: 120px;
+        padding: 12px 16px;
+        font-size: 16px;
+        border: 2px solid #e5e7eb;
+        border-radius: 8px;
+        background: #fafafa;
+        line-height: 1.6;
+      }
+      .contenteditable-styled:focus {
+        outline: none;
+        border-color: #3b82f6;
+      }
+      .contenteditable-styled strong {
+        color: #1a1a1a;
+        font-weight: 700;
+      }
+      .contenteditable-styled em {
+        color: #666;
+        font-style: italic;
+      }
+      .contenteditable-styled code {
+        background: #f0f0f0;
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-family: monospace;
+        font-size: 0.9em;
+      }
 
-    .info {
-      background: #EFF6FF;
-      border-left: 4px solid #3B82F6;
-      padding: 12px 16px;
-      margin: 15px 0;
-      border-radius: 0 8px 8px 0;
-      font-size: 14px;
-      color: #1e40af;
-    }
+      .info {
+        background: #eff6ff;
+        border-left: 4px solid #3b82f6;
+        padding: 12px 16px;
+        margin: 15px 0;
+        border-radius: 0 8px 8px 0;
+        font-size: 14px;
+        color: #1e40af;
+      }
 
-    .expected {
-      margin-top: 10px;
-      padding: 8px 12px;
-      background: #f0fdf4;
-      border-radius: 6px;
-      font-size: 13px;
-      color: #166534;
-    }
-    .expected strong {
-      color: #14532d;
-    }
+      .expected {
+        margin-top: 10px;
+        padding: 8px 12px;
+        background: #f0fdf4;
+        border-radius: 6px;
+        font-size: 13px;
+        color: #166534;
+      }
+      .expected strong {
+        color: #14532d;
+      }
 
-    .checklist {
-      margin-top: 30px;
-      background: white;
-      padding: 20px;
-      border-radius: 12px;
-    }
-    .checklist h3 {
-      margin-top: 0;
-      color: #333;
-    }
-    .checklist label {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 8px 0;
-      font-weight: normal;
-      cursor: pointer;
-    }
-    .checklist input[type="checkbox"] {
-      width: 18px;
-      height: 18px;
-    }
+      .checklist {
+        margin-top: 30px;
+        background: white;
+        padding: 20px;
+        border-radius: 12px;
+      }
+      .checklist h3 {
+        margin-top: 0;
+        color: #333;
+      }
+      .checklist label {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 8px 0;
+        font-weight: normal;
+        cursor: pointer;
+      }
+      .checklist input[type='checkbox'] {
+        width: 18px;
+        height: 18px;
+      }
 
-    #debug-panel {
-      position: fixed;
-      bottom: 20px;
-      right: 20px;
-      background: #1a1a1a;
-      color: #fff;
-      padding: 15px;
-      border-radius: 12px;
-      font-family: monospace;
-      font-size: 12px;
-      max-width: 350px;
-      max-height: 300px;
-      overflow: auto;
-      z-index: 10000;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.3);
-    }
-    #debug-panel h4 {
-      margin: 0 0 10px 0;
-      color: #3B82F6;
-    }
-    #debug-panel .log {
-      padding: 4px 0;
-      border-bottom: 1px solid #333;
-    }
-    #debug-panel .log.error { color: #ef4444; }
-    #debug-panel .log.success { color: #22c55e; }
-  </style>
-</head>
-<body>
-  <h1>🔤 AutoCorrect - Page de Test</h1>
+      #debug-panel {
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        background: #1a1a1a;
+        color: #fff;
+        padding: 15px;
+        border-radius: 12px;
+        font-family: monospace;
+        font-size: 12px;
+        max-width: 350px;
+        max-height: 300px;
+        overflow: auto;
+        z-index: 10000;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+      }
+      #debug-panel h4 {
+        margin: 0 0 10px 0;
+        color: #3b82f6;
+      }
+      #debug-panel .log {
+        padding: 4px 0;
+        border-bottom: 1px solid #333;
+      }
+      #debug-panel .log.error {
+        color: #ef4444;
+      }
+      #debug-panel .log.success {
+        color: #22c55e;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>🔤 AutoCorrect - Page de Test</h1>
 
-  <div class="info">
-    <strong>Instructions :</strong> Rechargez l'extension, puis testez chaque scénario ci-dessous.
-    Les mots avec des erreurs doivent être soulignés. Cliquez dessus pour voir le tooltip et tester l'application des suggestions.
-  </div>
-
-  <!-- Test 1: Input simple -->
-  <div class="test-section">
-    <h2><span class="status" id="status-input"></span> Test 1: Input simple</h2>
-    <label for="test-input">Input type="text"</label>
-    <input type="text" id="test-input" value="Ceci est un testttt avec une erreures.">
-    <div class="expected">
-      <strong>Attendu :</strong> "testttt" et "erreures" soulignés en rouge
+    <div class="info">
+      <strong>Instructions :</strong> Rechargez l'extension, puis testez chaque scénario ci-dessous.
+      Les mots avec des erreurs doivent être soulignés. Cliquez dessus pour voir le tooltip et
+      tester l'application des suggestions.
     </div>
-  </div>
 
-  <!-- Test 2: Textarea simple -->
-  <div class="test-section">
-    <h2><span class="status" id="status-textarea"></span> Test 2: Textarea simple</h2>
-    <label for="test-textarea">Textarea</label>
-    <textarea id="test-textarea" rows="3">Voici un texte avce des fotes d'ortographe.
-Et une deuxième ligne avec d'autres erreures.</textarea>
-    <div class="expected">
-      <strong>Attendu :</strong> "avce", "fotes", "ortographe", "erreures" soulignés
+    <!-- Test 1: Input simple -->
+    <div class="test-section">
+      <h2><span class="status" id="status-input"></span> Test 1: Input simple</h2>
+      <label for="test-input">Input type="text"</label>
+      <input type="text" id="test-input" value="Ceci est un testttt avec une erreures." />
+      <div class="expected">
+        <strong>Attendu :</strong> "testttt" et "erreures" soulignés en rouge
+      </div>
     </div>
-  </div>
 
-  <!-- Test 3: Textarea multi-ligne -->
-  <div class="test-section">
-    <h2><span class="status" id="status-textarea-multi"></span> Test 3: Textarea multi-ligne (scroll)</h2>
-    <label for="test-textarea-multi">Textarea avec beaucoup de texte</label>
-    <textarea id="test-textarea-multi" rows="5">Première ligne sans erreur.
+    <!-- Test 2: Textarea simple -->
+    <div class="test-section">
+      <h2><span class="status" id="status-textarea"></span> Test 2: Textarea simple</h2>
+      <label for="test-textarea">Textarea</label>
+      <textarea id="test-textarea" rows="3">
+Voici un texte avce des fotes d'ortographe.
+Et une deuxième ligne avec d'autres erreures.</textarea
+      >
+      <div class="expected">
+        <strong>Attendu :</strong> "avce", "fotes", "ortographe", "erreures" soulignés
+      </div>
+    </div>
+
+    <!-- Test 3: Textarea multi-ligne -->
+    <div class="test-section">
+      <h2>
+        <span class="status" id="status-textarea-multi"></span> Test 3: Textarea multi-ligne
+        (scroll)
+      </h2>
+      <label for="test-textarea-multi">Textarea avec beaucoup de texte</label>
+      <textarea id="test-textarea-multi" rows="5">
+Première ligne sans erreur.
 Deuxième ligne sans erreur non plus.
 Troisième ligne avec une erreures ici.
 Quatrième ligne correcte.
 Cinquième ligne avec un testttt.
 Sixième ligne normale.
-Septième ligne avec fote aussi.</textarea>
-    <div class="expected">
-      <strong>Attendu :</strong> Les erreurs sur les lignes 3, 5, 7 doivent être soulignées au bon endroit même après scroll
+Septième ligne avec fote aussi.</textarea
+      >
+      <div class="expected">
+        <strong>Attendu :</strong> Les erreurs sur les lignes 3, 5, 7 doivent être soulignées au bon
+        endroit même après scroll
+      </div>
     </div>
-  </div>
 
-  <!-- Test 4: Contenteditable simple -->
-  <div class="test-section">
-    <h2><span class="status" id="status-ce-simple"></span> Test 4: Contenteditable simple</h2>
-    <label>Div contenteditable</label>
-    <div class="contenteditable" contenteditable="true" id="test-ce-simple">
-      Ceci est un élément contenteditable avce des erreures à corriger.
+    <!-- Test 4: Contenteditable simple -->
+    <div class="test-section">
+      <h2><span class="status" id="status-ce-simple"></span> Test 4: Contenteditable simple</h2>
+      <label>Div contenteditable</label>
+      <div class="contenteditable" contenteditable="true" id="test-ce-simple">
+        Ceci est un élément contenteditable avce des erreures à corriger.
+      </div>
+      <div class="expected">
+        <strong>Attendu :</strong> "avce" et "erreures" soulignés. Clic sur suggestion doit
+        remplacer le texte.
+      </div>
     </div>
-    <div class="expected">
-      <strong>Attendu :</strong> "avce" et "erreures" soulignés. Clic sur suggestion doit remplacer le texte.
-    </div>
-  </div>
 
-  <!-- Test 5: Contenteditable avec formatage -->
-  <div class="test-section">
-    <h2><span class="status" id="status-ce-styled"></span> Test 5: Contenteditable avec spans (style Markdown)</h2>
-    <label>Div contenteditable avec formatage inline</label>
-    <div class="contenteditable-styled" contenteditable="true" id="test-ce-styled">
-      Voici du texte avec <strong>du gras</strong> et <em>de l'italique</em> et du <code>code inline</code>.
-      Cette phrase a une erreures de grammaire.
-      Et celle-ci a un testttt d'orthographe.
+    <!-- Test 5: Contenteditable avec formatage -->
+    <div class="test-section">
+      <h2>
+        <span class="status" id="status-ce-styled"></span> Test 5: Contenteditable avec spans (style
+        Markdown)
+      </h2>
+      <label>Div contenteditable avec formatage inline</label>
+      <div class="contenteditable-styled" contenteditable="true" id="test-ce-styled">
+        Voici du texte avec <strong>du gras</strong> et <em>de l'italique</em> et du
+        <code>code inline</code>. Cette phrase a une erreures de grammaire. Et celle-ci a un testttt
+        d'orthographe.
+      </div>
+      <div class="expected">
+        <strong>Attendu :</strong> "erreures" et "testttt" soulignés malgré les spans de formatage
+      </div>
     </div>
-    <div class="expected">
-      <strong>Attendu :</strong> "erreures" et "testttt" soulignés malgré les spans de formatage
-    </div>
-  </div>
 
-  <!-- Test 6: Contenteditable multi-ligne (Zendesk-style) -->
-  <div class="test-section">
-    <h2><span class="status" id="status-ce-multiline"></span> Test 6: Contenteditable multi-ligne (style Zendesk)</h2>
-    <label>Div contenteditable avec plusieurs lignes (br)</label>
-    <div class="contenteditable" contenteditable="true" id="test-ce-multiline">Première ligne sans erreur.<br>Deuxième ligne avec erreures ici.<br>Troisième ligne avec testttt aussi.</div>
-    <div class="expected">
-      <strong>Attendu :</strong> "erreures" (ligne 2) et "testttt" (ligne 3) soulignés au bon endroit. Clic sur suggestion doit remplacer le texte correctement.
+    <!-- Test 6: Contenteditable multi-ligne (Zendesk-style) -->
+    <div class="test-section">
+      <h2>
+        <span class="status" id="status-ce-multiline"></span> Test 6: Contenteditable multi-ligne
+        (style Zendesk)
+      </h2>
+      <label>Div contenteditable avec plusieurs lignes (br)</label>
+      <div class="contenteditable" contenteditable="true" id="test-ce-multiline">
+        Première ligne sans erreur.<br />Deuxième ligne avec erreures ici.<br />Troisième ligne avec
+        testttt aussi.
+      </div>
+      <div class="expected">
+        <strong>Attendu :</strong> "erreures" (ligne 2) et "testttt" (ligne 3) soulignés au bon
+        endroit. Clic sur suggestion doit remplacer le texte correctement.
+      </div>
     </div>
-  </div>
 
-  <!-- Test 7: Contenteditable multi-div (Gmail-style) -->
-  <div class="test-section">
-    <h2><span class="status" id="status-ce-gmail"></span> Test 7: Contenteditable multi-div (style Gmail)</h2>
-    <label>Div contenteditable avec divs imbriqués</label>
-    <div class="contenteditable" contenteditable="true" id="test-ce-gmail"><div>Bonjour,</div><div><br></div><div>Je vous écris pour signaler un problème.</div><div>Il y a des erreures dans le système.</div><div>Merci de votre compréhension.</div></div>
-    <div class="expected">
-      <strong>Attendu :</strong> "erreures" souligné au bon endroit (ligne 4). Le remplacement doit fonctionner correctement.
+    <!-- Test 7: Contenteditable multi-div (Gmail-style) -->
+    <div class="test-section">
+      <h2>
+        <span class="status" id="status-ce-gmail"></span> Test 7: Contenteditable multi-div (style
+        Gmail)
+      </h2>
+      <label>Div contenteditable avec divs imbriqués</label>
+      <div class="contenteditable" contenteditable="true" id="test-ce-gmail">
+        <div>Bonjour,</div>
+        <div><br /></div>
+        <div>Je vous écris pour signaler un problème.</div>
+        <div>Il y a des erreures dans le système.</div>
+        <div>Merci de votre compréhension.</div>
+      </div>
+      <div class="expected">
+        <strong>Attendu :</strong> "erreures" souligné au bon endroit (ligne 4). Le remplacement
+        doit fonctionner correctement.
+      </div>
     </div>
-  </div>
 
-  <!-- Test 8: Grand document (chunking) -->
-  <div class="test-section">
-    <h2><span class="status" id="status-large"></span> Test 6: Grand document (test du chunking 500 chars)</h2>
-    <label for="test-large">Textarea avec beaucoup de texte (placez le curseur près d'une erreur)</label>
-    <textarea id="test-large" rows="8">Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur.
+    <!-- Test 8: Grand document (chunking) -->
+    <div class="test-section">
+      <h2>
+        <span class="status" id="status-large"></span> Test 6: Grand document (test du chunking 500
+        chars)
+      </h2>
+      <label for="test-large"
+        >Textarea avec beaucoup de texte (placez le curseur près d'une erreur)</label
+      >
+      <textarea id="test-large" rows="8">
+Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur.
 
 Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum. Voici une erreures intentionnelle pour tester.
 
@@ -302,69 +346,72 @@ Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium dolor
 
 Nemo enim ipsam voluptatem quia voluptas sit aspernatur aut odit aut fugit, sed quia consequuntur magni dolores eos qui ratione voluptatem sequi nesciunt. Et un testttt ici aussi.
 
-Neque porro quisquam est, qui dolorem ipsum quia dolor sit amet, consectetur, adipisci velit.</textarea>
-    <div class="expected">
-      <strong>Attendu :</strong> Seuls les ~500 caractères autour du curseur sont vérifiés. Déplacez le curseur pour voir d'autres erreurs se détecter.
+Neque porro quisquam est, qui dolorem ipsum quia dolor sit amet, consectetur, adipisci velit.</textarea
+      >
+      <div class="expected">
+        <strong>Attendu :</strong> Seuls les ~500 caractères autour du curseur sont vérifiés.
+        Déplacez le curseur pour voir d'autres erreurs se détecter.
+      </div>
     </div>
-  </div>
 
-  <!-- Checklist de validation -->
-  <div class="checklist">
-    <h3>✅ Checklist de Validation</h3>
-    <label><input type="checkbox"> Les soulignements apparaissent au bon endroit</label>
-    <label><input type="checkbox"> Le tooltip s'ouvre au clic sur un soulignement</label>
-    <label><input type="checkbox"> Cliquer sur une suggestion remplace le texte</label>
-    <label><input type="checkbox"> "Ignorer" masque le soulignement</label>
-    <label><input type="checkbox"> Le tooltip se ferme quand on clique ailleurs</label>
-    <label><input type="checkbox"> Les erreurs se re-détectent après modification</label>
-    <label><input type="checkbox"> Console : 0 erreurs JavaScript</label>
-  </div>
+    <!-- Checklist de validation -->
+    <div class="checklist">
+      <h3>✅ Checklist de Validation</h3>
+      <label><input type="checkbox" /> Les soulignements apparaissent au bon endroit</label>
+      <label><input type="checkbox" /> Le tooltip s'ouvre au clic sur un soulignement</label>
+      <label><input type="checkbox" /> Cliquer sur une suggestion remplace le texte</label>
+      <label><input type="checkbox" /> "Ignorer" masque le soulignement</label>
+      <label><input type="checkbox" /> Le tooltip se ferme quand on clique ailleurs</label>
+      <label><input type="checkbox" /> Les erreurs se re-détectent après modification</label>
+      <label><input type="checkbox" /> Console : 0 erreurs JavaScript</label>
+    </div>
 
-  <!-- Debug Panel -->
-  <div id="debug-panel">
-    <h4>🔧 Debug Console</h4>
-    <div id="debug-logs"></div>
-  </div>
+    <!-- Debug Panel -->
+    <div id="debug-panel">
+      <h4>🔧 Debug Console</h4>
+      <div id="debug-logs"></div>
+    </div>
 
-  <script>
-    // Intercept console.log for [AutoCorrect] messages
-    const originalLog = console.log;
-    const originalWarn = console.warn;
-    const originalError = console.error;
-    const debugLogs = document.getElementById('debug-logs');
+    <script>
+      // Intercept console.log for [AutoCorrect] messages
+      const originalLog = console.log
+      const originalWarn = console.warn
+      const originalError = console.error
+      const debugLogs = document.getElementById('debug-logs')
 
-    function addLog(message, type = 'log') {
-      if (typeof message === 'string' && message.includes('[AutoCorrect]')) {
-        const div = document.createElement('div');
-        div.className = 'log ' + (type === 'error' ? 'error' : type === 'success' ? 'success' : '');
-        div.textContent = message.replace('[AutoCorrect] ', '');
-        debugLogs.insertBefore(div, debugLogs.firstChild);
-        // Keep only last 20 logs
-        while (debugLogs.children.length > 20) {
-          debugLogs.removeChild(debugLogs.lastChild);
+      function addLog(message, type = 'log') {
+        if (typeof message === 'string' && message.includes('[AutoCorrect]')) {
+          const div = document.createElement('div')
+          div.className =
+            'log ' + (type === 'error' ? 'error' : type === 'success' ? 'success' : '')
+          div.textContent = message.replace('[AutoCorrect] ', '')
+          debugLogs.insertBefore(div, debugLogs.firstChild)
+          // Keep only last 20 logs
+          while (debugLogs.children.length > 20) {
+            debugLogs.removeChild(debugLogs.lastChild)
+          }
         }
       }
-    }
 
-    console.log = function(...args) {
-      originalLog.apply(console, args);
-      args.forEach(arg => addLog(String(arg), 'log'));
-    };
+      console.log = function (...args) {
+        originalLog.apply(console, args)
+        args.forEach((arg) => addLog(String(arg), 'log'))
+      }
 
-    console.warn = function(...args) {
-      originalWarn.apply(console, args);
-      args.forEach(arg => addLog(String(arg), 'warn'));
-    };
+      console.warn = function (...args) {
+        originalWarn.apply(console, args)
+        args.forEach((arg) => addLog(String(arg), 'warn'))
+      }
 
-    console.error = function(...args) {
-      originalError.apply(console, args);
-      args.forEach(arg => addLog(String(arg), 'error'));
-    };
+      console.error = function (...args) {
+        originalError.apply(console, args)
+        args.forEach((arg) => addLog(String(arg), 'error'))
+      }
 
-    // Auto-focus first input to trigger initial check
-    setTimeout(() => {
-      document.getElementById('test-input').focus();
-    }, 1000);
-  </script>
-</body>
+      // Auto-focus first input to trigger initial check
+      setTimeout(() => {
+        document.getElementById('test-input').focus()
+      }, 1000)
+    </script>
+  </body>
 </html>

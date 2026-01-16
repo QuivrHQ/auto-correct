@@ -1,66 +1,75 @@
-<!DOCTYPE html>
+<!doctype html>
 <html>
-<head>
-  <title>AutoCorrect Test Page</title>
-  <style>
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, sans-serif;
-      max-width: 800px;
-      margin: 50px auto;
-      padding: 20px;
-    }
-    h1 { color: #333; }
-    textarea {
-      width: 100%;
-      height: 200px;
-      padding: 12px;
-      font-size: 16px;
-      border: 1px solid #ddd;
-      border-radius: 8px;
-      margin: 10px 0;
-    }
-    input[type="text"] {
-      width: 100%;
-      padding: 12px;
-      font-size: 16px;
-      border: 1px solid #ddd;
-      border-radius: 8px;
-      margin: 10px 0;
-    }
-    .contenteditable {
-      width: 100%;
-      min-height: 150px;
-      padding: 12px;
-      font-size: 16px;
-      border: 1px solid #ddd;
-      border-radius: 8px;
-      margin: 10px 0;
-    }
-    label {
-      font-weight: 600;
-      color: #555;
-    }
-  </style>
-</head>
-<body>
-  <h1>🔤 AutoCorrect Test Page</h1>
+  <head>
+    <title>AutoCorrect Test Page</title>
+    <style>
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+        max-width: 800px;
+        margin: 50px auto;
+        padding: 20px;
+      }
+      h1 {
+        color: #333;
+      }
+      textarea {
+        width: 100%;
+        height: 200px;
+        padding: 12px;
+        font-size: 16px;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        margin: 10px 0;
+      }
+      input[type='text'] {
+        width: 100%;
+        padding: 12px;
+        font-size: 16px;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        margin: 10px 0;
+      }
+      .contenteditable {
+        width: 100%;
+        min-height: 150px;
+        padding: 12px;
+        font-size: 16px;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        margin: 10px 0;
+      }
+      label {
+        font-weight: 600;
+        color: #555;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>🔤 AutoCorrect Test Page</h1>
 
-  <label>Input text:</label>
-  <input type="text" id="test-input" placeholder="Tapez du texte avec des erreurs..." value="Ceci est un testttt avec des erreures.">
+    <label>Input text:</label>
+    <input
+      type="text"
+      id="test-input"
+      placeholder="Tapez du texte avec des erreurs..."
+      value="Ceci est un testttt avec des erreures."
+    />
 
-  <label>Textarea:</label>
-  <textarea id="test-textarea" placeholder="Tapez du texte avec des erreurs...">Voici un texte avce des fotes d'ortographe.
+    <label>Textarea:</label>
+    <textarea id="test-textarea" placeholder="Tapez du texte avec des erreurs...">
+Voici un texte avce des fotes d'ortographe.
 Et une deuxième ligne avec d'autres erreures à corriger.
-testérhon est un mot inventé.</textarea>
+testérhon est un mot inventé.</textarea
+    >
 
-  <label>Contenteditable div:</label>
-  <div class="contenteditable" contenteditable="true" id="test-editable">
-    Ceci est un élément contenteditable avce des erreures aussi.
-  </div>
+    <label>Contenteditable div:</label>
+    <div class="contenteditable" contenteditable="true" id="test-editable">
+      Ceci est un élément contenteditable avce des erreures aussi.
+    </div>
 
-  <p style="color: #888; margin-top: 30px;">
-    👆 Les mots avec des erreurs devraient être soulignés en rouge (orthographe) ou orange (grammaire).
-    Cliquez sur un mot souligné pour voir les suggestions de correction.
-  </p>
-</body>
+    <p style="color: #888; margin-top: 30px">
+      👆 Les mots avec des erreurs devraient être soulignés en rouge (orthographe) ou orange
+      (grammaire). Cliquez sur un mot souligné pour voir les suggestions de correction.
+    </p>
+  </body>
 </html>
