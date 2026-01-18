@@ -1,43 +1,39 @@
-# fly.toml app configuration file generated for languagetool-autocorrect on 2026-01-15T18:10:47+01:00
-#
-# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
-#
-
 app = 'languagetool-autocorrect'
 primary_region = 'cdg'
 
 [build]
 
 [env]
-  # Java Memory (75% rule for 8GB = 6GB)
+  # === MÉMOIRE JVM ===
   Java_Xms = "4096m"
   Java_Xmx = "6144m"
 
-  # N-gram data for better error detection
-  langtool_languageModel = "/ngrams"
+  # === JVM GC (optimisé) ===
+  JAVA_OPTS = "-XX:+UseG1GC -XX:MaxGCPauseMillis=100 -XX:InitiatingHeapOccupancyPercent=30 -XX:+ParallelRefProcEnabled -XX:+UseStringDeduplication -XX:+AlwaysPreTouch"
 
-  # JVM GC Options (Phase 2 - corrected method)
-  JAVA_OPTS = "-XX:+UseG1GC -XX:MaxGCPauseMillis=150 -XX:InitiatingHeapOccupancyPercent=35 -XX:+ParallelRefProcEnabled"
-
-  # Pipeline caching & prewarming
+  # === PIPELINE (augmenté) ===
   langtool_pipelinePrewarming = "true"
   langtool_pipelineCaching = "true"
-  langtool_maxPipelinePoolSize = "16"
-  langtool_pipelineExpireTimeInSeconds = "300"
+  langtool_maxPipelinePoolSize = "24"
+  langtool_pipelineExpireTimeInSeconds = "600"
 
-  # Result caching
-  langtool_cacheSize = "5000"
-  langtool_cacheTTLSeconds = "600"
+  # === CACHE (augmenté) ===
+  langtool_cacheSize = "10000"
+  langtool_cacheTTLSeconds = "900"
 
-  # Threading (Phase 2)
+  # === THREADING (optimisé pour 4 CPUs) ===
   langtool_maxCheckThreads = "8"
   langtool_maxTextCheckerThreads = "16"
-  langtool_textCheckerQueueSize = "32"
+  langtool_textCheckerQueueSize = "48"
 
-  # Limites (Phase 2)
-  langtool_maxCheckTimeMillis = "30000"
-  langtool_maxWorkQueueSize = "200"
-  langtool_maxSpellingSuggestions = "5"
+  # === LIMITES (ajusté) ===
+  langtool_maxCheckTimeMillis = "25000"
+  langtool_maxWorkQueueSize = "300"
+  langtool_maxSpellingSuggestions = "3"
+  langtool_maxTextLength = "50000"
+
+  # === N-GRAMS ===
+  langtool_languageModel = "/ngrams"
 
 [http_service]
   internal_port = 8010
@@ -49,11 +45,14 @@ primary_region = 'cdg'
 
   [http_service.concurrency]
     type = "requests"
-    soft_limit = 100
-    hard_limit = 200
+    soft_limit = 80
+    hard_limit = 150
+
+  [http_service.machine_pool]
+    max_machines = 4
 
 [[http_service.checks]]
-  grace_period = "120s"
+  grace_period = "180s"
   interval = "30s"
   method = "GET"
   path = "/v2/languages"
@@ -68,3 +67,4 @@ primary_region = 'cdg'
 [mounts]
   source = "ngrams_data"
   destination = "/ngrams"
+  initial_size = "40gb"
