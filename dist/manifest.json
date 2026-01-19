@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "AutoCorrect by Quivr",
   "description": "Correction grammaticale et orthographique en temps réel",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "icons": {
     "16": "icons/icon16.png",
     "48": "icons/icon48.png",
@@ -27,7 +27,7 @@
   "content_scripts": [
     {
       "js": [
-        "assets/index.ts-loader-BU9o8a94.js"
+        "assets/index.ts-loader-HKQ8FkKi.js"
       ],
       "matches": [
         "<all_urls>"
@@ -44,7 +44,7 @@
       "resources": [
         "assets/storage-Dq_-2h6f.js",
         "assets/language-tool-client-B4BnbzYn.js",
-        "assets/index.ts-DIhy38NR.js"
+        "assets/index.ts-CcV3m6xm.js"
       ],
       "use_dynamic_url": false
     }
