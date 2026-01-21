@@ -2,14 +2,18 @@
   "manifest_version": 3,
   "name": "AutoCorrect",
   "description": "Correction grammaticale et orthographique en temps réel",
-  "version": "1.0.0",
+  "version": "1.2.0",
   "icons": {
     "16": "icons/icon16.png",
     "48": "icons/icon48.png",
     "128": "icons/icon128.png"
   },
   "permissions": ["storage", "activeTab"],
-  "host_permissions": ["<all_urls>"],
+  "host_permissions": [
+    "*://*.zendesk.com/*",
+    "*://*.fly.dev/*",
+    "*://*.quivr.com/*"
+  ],
   "action": {
     "default_popup": "src/popup/index.html",
     "default_icon": {
@@ -25,14 +29,14 @@
   "content_scripts": [
     {
       "js": ["assets/index.ts-loader-DIKUgqel.js"],
-      "matches": ["<all_urls>"],
+      "matches": ["*://*.zendesk.com/*"],
       "run_at": "document_idle",
       "all_frames": true
     }
   ],
   "web_accessible_resources": [
     {
-      "matches": ["<all_urls>"],
+      "matches": ["*://*.zendesk.com/*"],
       "resources": [
         "assets/storage-Lryb-ELa.js",
         "assets/language-tool-client-CaKIfVxh.js",
