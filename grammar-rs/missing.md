@@ -2,7 +2,7 @@
 
 > **Important:** Toujours synchroniser les nouvelles règles depuis LanguageTool avec `cargo run --bin sync-lt`
 
-## État actuel: ~25-30% de parité fonctionnelle
+## État actuel: ~35-40% de parité fonctionnelle
 
 ### Résumé des performances
 - **grammar-rs:** ~9ms par requête
@@ -61,12 +61,31 @@ Sans antipatterns, grammar-rs génère des faux positifs sur:
 
 ---
 
-## 2. Règles conditionnelles (0% implémenté)
+## 2. Règles conditionnelles / POS Pattern Rules ✅ INTÉGRÉ
 
 ### Description
 Règles avec logique complexe: filtres POS, exceptions, tokens avec attributs. LanguageTool en a ~800.
 
+### État actuel
+- **Extraits:** 94 règles POS pattern (EN)
+- **POS Tagger:** Intégré avec 441 mots du dictionnaire + heuristiques de suffixes
+- **Fichiers générés:**
+  - `src/checker/data/en_pos_patterns.rs` (94 règles)
+  - `src/checker/data/fr_pos_patterns.rs`
+  - `src/checker/data/en_added.rs` (441 mots POS-tagged)
+- **Intégration:** `PosPatternChecker.with_rules(EN_POS_PATTERN_RULES)` dans le pipeline API
+
 ### Exemple
+```rust
+// Le pipeline utilise maintenant le POS tagger pour des règles avancées
+Pipeline::new(
+    SimpleTokenizer::new(),
+    Self::create_en_pos_tagger(),  // PosTagger au lieu de PassthroughAnalyzer
+)
+.with_checker(PosPatternChecker::with_rules(EN_POS_PATTERN_RULES))
+```
+
+### Exemple de règle POS
 ```xml
 <rule>
   <pattern>
@@ -80,20 +99,14 @@ Règles avec logique complexe: filtres POS, exceptions, tokens avec attributs. L
 </rule>
 ```
 
-### Impact
-Sans règles conditionnelles:
-- Détection incorrecte des temps verbaux
-- Faux positifs sur constructions grammaticales valides
-- Manque de précision sur l'accord sujet-verbe
+### Amélioration future
+- Extraire plus de règles POS depuis grammar.xml (~700 restantes)
+- Enrichir le dictionnaire POS au-delà des 441 mots actuels
+- Ajouter les filtres complexes (`<filter>`, `<exception>`)
 
 ### Fichiers sources LanguageTool
 - `languagetool/org/languagetool/rules/en/grammar.xml`
 - Chercher: `<filter>`, `<exception>`, `postag=`
-
-### Implémentation requise
-1. Parser les attributs `postag`, `chunk`, `inflected`
-2. Créer `ConditionalRuleChecker`
-3. Intégrer avec le POS tagger
 
 ---
 
@@ -211,14 +224,14 @@ Utiliser les confusion pairs avec scoring de fréquence plus léger.
 
 ## Roadmap prioritaire
 
-| Priorité | Phase | Fonctionnalité | Parité estimée |
-|----------|-------|----------------|----------------|
-| HAUTE | 5 | Antipatterns | 25% → 35% |
-| HAUTE | 6 | Règles conditionnelles | 35% → 50% |
-| MOYENNE | 7 | Hunspell | 50% → 65% |
-| MOYENNE | 8 | Confusion pairs natifs | 65% → 75% |
-| BASSE | 9 | Disambiguation | 75% → 80% |
-| BASSE | 10 | Style étendu | 80% → 85% |
+| Priorité | Phase | Fonctionnalité | Parité estimée | État |
+|----------|-------|----------------|----------------|------|
+| HAUTE | 5 | Antipatterns | 25% → 35% | ✅ COMPLET |
+| HAUTE | 6 | Règles conditionnelles / POS | 35% → 40% | ✅ INTÉGRÉ |
+| MOYENNE | 7 | Hunspell | 40% → 55% | ❌ À faire |
+| MOYENNE | 8 | Confusion pairs natifs | 55% → 65% | ✅ COMPLET |
+| BASSE | 9 | Disambiguation | 65% → 70% | ❌ À faire |
+| BASSE | 10 | Style étendu | 70% → 75% | ❌ À faire |
 
 ---
 

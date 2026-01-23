@@ -6,10 +6,14 @@ use grammar_rs::checker::{
     AhoPatternRuleChecker, ReplaceRuleChecker,
     StyleChecker, CoherencyChecker, DiacriticsChecker,
     ContractionChecker, ContextChecker,
+    PosPatternChecker,
     EN_PATTERN_RULES, FR_PATTERN_RULES,
     EN_REPLACE_RULES, FR_REPLACE_RULES,
     EN_ANTIPATTERNS, FR_ANTIPATTERNS,
+    EN_POS_PATTERN_RULES, FR_POS_PATTERN_RULES,
+    EN_ADDED_WORDS,
 };
+use grammar_rs::core::PosTag;
 use std::sync::Arc;
 
 /// Application state shared across all requests
@@ -40,6 +44,22 @@ impl AppState {
         }
     }
 
+    /// Create an English POS tagger with the added words dictionary
+    fn create_en_pos_tagger() -> PosTagger {
+        let mut tagger = PosTagger::new();
+
+        // Load the POS-tagged words from LanguageTool
+        for entry in EN_ADDED_WORDS {
+            if let Some(pos) = PosTag::from_str(entry.pos_tag) {
+                tagger.add_word(entry.word, entry.base_form, pos);
+            }
+        }
+
+        tracing::debug!("EN POS tagger loaded with {} dictionary entries + suffix heuristics",
+                       tagger.dictionary_size());
+        tagger
+    }
+
     /// Get the appropriate pipeline for a language
     pub fn get_pipeline(&self, lang: &str) -> &Pipeline {
         if lang.starts_with("fr") {
@@ -51,9 +71,12 @@ impl AppState {
 
     /// Create the English pipeline with all checkers
     fn create_en_pipeline() -> Pipeline {
+        // Use POS tagger instead of passthrough for better rule matching
+        let pos_tagger = Self::create_en_pos_tagger();
+
         Pipeline::new(
             SimpleTokenizer::new(),
-            PassthroughAnalyzer::new(),
+            pos_tagger,
         )
         // Basic grammar rules + confusion pairs
         .with_checker(
@@ -63,6 +86,8 @@ impl AppState {
         )
         // Pattern-based rules (Aho-Corasick for speed) with antipattern filtering
         .with_checker(AhoPatternRuleChecker::with_antipatterns(EN_PATTERN_RULES, EN_ANTIPATTERNS))
+        // POS pattern rules (require POS tagging) - 94 rules from LanguageTool
+        .with_checker(PosPatternChecker::with_rules(EN_POS_PATTERN_RULES))
         // Simple replacements
         .with_checker(ReplaceRuleChecker::new(EN_REPLACE_RULES, "EN_REPLACE"))
         // Style checking (wordiness, redundancy) - uses default EN_STYLE_RULES

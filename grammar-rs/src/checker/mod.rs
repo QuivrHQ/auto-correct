@@ -79,6 +79,15 @@ pub use data::{
     EN_ANTIPATTERNS, FR_ANTIPATTERNS,
     get_en_antipatterns, get_fr_antipatterns,
 };
+// POS pattern rules (require POS tagging)
+pub use data::{
+    EN_POS_PATTERN_RULES, FR_POS_PATTERN_RULES,
+    create_en_pos_pattern_checker, create_fr_pos_pattern_checker,
+};
+// POS-tagged words for dictionary
+pub use data::{
+    PosTaggedWord, EN_ADDED_WORDS, get_en_added_word,
+};
 pub use pattern_rules::{AhoPatternRuleChecker, PatternRule, PatternRuleChecker};
 pub use replace_rules::ReplaceRuleChecker;
 pub use style_checker::StyleChecker;
