@@ -1181,6 +1181,337 @@ fn test_quality_metrics() {
     total_metrics.merge(&rd_metrics);
     categories.push(rd_cat);
 
+    // --- StyleChecker EN (Wordiness/Redundancy) ---
+    let mut style_en_cat = CategoryCoverage::new("STYLE_EN", "StyleChecker EN (wordiness)");
+    println!("\n--- StyleChecker EN ---");
+    {
+        use grammar_rs::checker::StyleChecker;
+        use grammar_rs::core::traits::Checker;
+
+        let checker = StyleChecker::new();
+        let tokenizer = SimpleTokenizer::new();
+        let analyzer = PassthroughAnalyzer::new();
+
+        let style_cases = vec![
+            ("In order to succeed you must work hard.", true, "WORDINESS"),
+            ("Due to the fact that it rained we stayed.", true, "WORDINESS"),
+            ("Meet me at 12 noon for lunch.", true, "REDUNDANCY"),
+            ("The end result was positive.", true, "REDUNDANCY"),
+            ("To succeed you must work.", false, ""),
+            ("Because it rained we stayed.", false, ""),
+        ];
+
+        let mut tp = 0;
+        let mut fp = 0;
+        let mut fn_count = 0;
+        let mut tn = 0;
+
+        for (text, should_detect, expected_type) in &style_cases {
+            let tokens = tokenizer.tokenize(text);
+            let analyzed = analyzer.analyze(tokens);
+            let result = checker.check(text, &analyzed);
+
+            let has_match = result.matches.iter().any(|m|
+                m.rule_id.contains("WORDINESS") || m.rule_id.contains("REDUNDANCY")
+            );
+
+            if *should_detect {
+                if has_match {
+                    tp += 1;
+                } else {
+                    fn_count += 1;
+                    eprintln!("  FN: {} not detected in \"{}\"", expected_type, text);
+                }
+            } else {
+                if has_match {
+                    fp += 1;
+                    eprintln!("  FP: unexpected match in \"{}\"", text);
+                } else {
+                    tn += 1;
+                }
+            }
+        }
+
+        style_en_cat.detected = tp;
+        style_en_cat.total = tp + fn_count;
+        println!("  TP: {}, FP: {}, FN: {}, TN: {}", tp, fp, fn_count, tn);
+        let style_metrics = QualityMetrics {
+            true_positives: tp,
+            false_positives: fp,
+            false_negatives: fn_count,
+            true_negatives: tn,
+        };
+        println!("  Precision: {:.1}%", style_metrics.precision() * 100.0);
+        println!("  Recall:    {:.1}%", style_metrics.recall() * 100.0);
+        println!("  F1 Score:  {:.1}%", style_metrics.f1() * 100.0);
+        total_metrics.merge(&style_metrics);
+    }
+    categories.push(style_en_cat);
+
+    // --- StyleChecker FR ---
+    let mut style_fr_cat = CategoryCoverage::new("STYLE_FR", "StyleChecker FR");
+    println!("\n--- StyleChecker FR ---");
+    {
+        use grammar_rs::checker::StyleChecker;
+        use grammar_rs::core::traits::Checker;
+
+        let checker = StyleChecker::french();
+        let tokenizer = SimpleTokenizer::new();
+        let analyzer = PassthroughAnalyzer::new();
+
+        let style_cases = vec![
+            ("Afin de réussir il faut travailler.", true, "WORDINESS"),
+            ("Il est important de noter que cela marche.", true, "WORDINESS"),
+            ("Le chat dort sur le tapis.", false, ""),
+        ];
+
+        let mut tp = 0;
+        let mut fp = 0;
+        let mut fn_count = 0;
+        let mut tn = 0;
+
+        for (text, should_detect, expected_type) in &style_cases {
+            let tokens = tokenizer.tokenize(text);
+            let analyzed = analyzer.analyze(tokens);
+            let result = checker.check(text, &analyzed);
+
+            let has_match = result.matches.iter().any(|m|
+                m.rule_id.contains("WORDINESS") || m.rule_id.contains("REDUNDANCY")
+            );
+
+            if *should_detect {
+                if has_match {
+                    tp += 1;
+                } else {
+                    fn_count += 1;
+                    eprintln!("  FN: {} not detected in \"{}\"", expected_type, text);
+                }
+            } else {
+                if has_match {
+                    fp += 1;
+                    eprintln!("  FP: unexpected match in \"{}\"", text);
+                } else {
+                    tn += 1;
+                }
+            }
+        }
+
+        style_fr_cat.detected = tp;
+        style_fr_cat.total = tp + fn_count;
+        println!("  TP: {}, FP: {}, FN: {}, TN: {}", tp, fp, fn_count, tn);
+        let style_metrics = QualityMetrics {
+            true_positives: tp,
+            false_positives: fp,
+            false_negatives: fn_count,
+            true_negatives: tn,
+        };
+        println!("  Precision: {:.1}%", style_metrics.precision() * 100.0);
+        println!("  Recall:    {:.1}%", style_metrics.recall() * 100.0);
+        println!("  F1 Score:  {:.1}%", style_metrics.f1() * 100.0);
+        total_metrics.merge(&style_metrics);
+    }
+    categories.push(style_fr_cat);
+
+    // --- CompoundWordChecker EN ---
+    let mut compound_en_cat = CategoryCoverage::new("COMPOUND_EN", "CompoundWordChecker EN");
+    println!("\n--- CompoundWordChecker EN ---");
+    {
+        use grammar_rs::checker::CompoundWordChecker;
+        use grammar_rs::core::traits::Checker;
+
+        let checker = CompoundWordChecker::new();
+        let tokenizer = SimpleTokenizer::new();
+        let analyzer = PassthroughAnalyzer::new();
+
+        let compound_cases = vec![
+            ("The air plane landed safely.", true, "airplane"),
+            ("Your well being matters.", true, "well-being"),
+            ("The airplane is ready.", false, ""),
+            ("The cat sat on the mat.", false, ""),
+        ];
+
+        let mut tp = 0;
+        let mut fp = 0;
+        let mut fn_count = 0;
+        let mut tn = 0;
+
+        for (text, should_detect, expected_suggestion) in &compound_cases {
+            let tokens = tokenizer.tokenize(text);
+            let analyzed = analyzer.analyze(tokens);
+            let result = checker.check(text, &analyzed);
+
+            let has_match = result.matches.iter().any(|m| m.rule_id.contains("COMPOUND"));
+
+            if *should_detect {
+                if has_match {
+                    tp += 1;
+                    // Verify suggestion
+                    let has_correct_suggestion = result.matches.iter()
+                        .any(|m| m.suggestions.contains(&expected_suggestion.to_string()));
+                    if !has_correct_suggestion && !expected_suggestion.is_empty() {
+                        eprintln!("  Warning: expected suggestion '{}' not found", expected_suggestion);
+                    }
+                } else {
+                    fn_count += 1;
+                    eprintln!("  FN: compound not detected in \"{}\"", text);
+                }
+            } else {
+                if has_match {
+                    fp += 1;
+                    eprintln!("  FP: unexpected compound match in \"{}\"", text);
+                } else {
+                    tn += 1;
+                }
+            }
+        }
+
+        compound_en_cat.detected = tp;
+        compound_en_cat.total = tp + fn_count;
+        println!("  TP: {}, FP: {}, FN: {}, TN: {}", tp, fp, fn_count, tn);
+        let compound_metrics = QualityMetrics {
+            true_positives: tp,
+            false_positives: fp,
+            false_negatives: fn_count,
+            true_negatives: tn,
+        };
+        println!("  Precision: {:.1}%", compound_metrics.precision() * 100.0);
+        println!("  Recall:    {:.1}%", compound_metrics.recall() * 100.0);
+        println!("  F1 Score:  {:.1}%", compound_metrics.f1() * 100.0);
+        total_metrics.merge(&compound_metrics);
+    }
+    categories.push(compound_en_cat);
+
+    // --- CompoundWordChecker FR ---
+    let mut compound_fr_cat = CategoryCoverage::new("COMPOUND_FR", "CompoundWordChecker FR");
+    println!("\n--- CompoundWordChecker FR ---");
+    {
+        use grammar_rs::checker::CompoundWordChecker;
+        use grammar_rs::core::traits::Checker;
+
+        let checker = CompoundWordChecker::french();
+        let tokenizer = SimpleTokenizer::new();
+        let analyzer = PassthroughAnalyzer::new();
+
+        let compound_cases = vec![
+            ("J'ai pris un aller retour.", true, "aller-retour"),
+            ("C'est un chef d'oeuvre.", true, "chef-d'oeuvre"),
+            ("Le chat dort sur le tapis.", false, ""),
+        ];
+
+        let mut tp = 0;
+        let mut fp = 0;
+        let mut fn_count = 0;
+        let mut tn = 0;
+
+        for (text, should_detect, expected_suggestion) in &compound_cases {
+            let tokens = tokenizer.tokenize(text);
+            let analyzed = analyzer.analyze(tokens);
+            let result = checker.check(text, &analyzed);
+
+            let has_match = result.matches.iter().any(|m| m.rule_id.contains("COMPOUND"));
+
+            if *should_detect {
+                if has_match {
+                    tp += 1;
+                } else {
+                    fn_count += 1;
+                    eprintln!("  FN: compound '{}' not detected in \"{}\"", expected_suggestion, text);
+                }
+            } else {
+                if has_match {
+                    fp += 1;
+                    eprintln!("  FP: unexpected compound match in \"{}\"", text);
+                } else {
+                    tn += 1;
+                }
+            }
+        }
+
+        compound_fr_cat.detected = tp;
+        compound_fr_cat.total = tp + fn_count;
+        println!("  TP: {}, FP: {}, FN: {}, TN: {}", tp, fp, fn_count, tn);
+        let compound_metrics = QualityMetrics {
+            true_positives: tp,
+            false_positives: fp,
+            false_negatives: fn_count,
+            true_negatives: tn,
+        };
+        println!("  Precision: {:.1}%", compound_metrics.precision() * 100.0);
+        println!("  Recall:    {:.1}%", compound_metrics.recall() * 100.0);
+        println!("  F1 Score:  {:.1}%", compound_metrics.f1() * 100.0);
+        total_metrics.merge(&compound_metrics);
+    }
+    categories.push(compound_fr_cat);
+
+    // --- ProhibitChecker EN ---
+    let mut prohibit_cat = CategoryCoverage::new("PROHIBIT", "ProhibitChecker EN");
+    println!("\n--- ProhibitChecker EN ---");
+    {
+        use grammar_rs::checker::ProhibitChecker;
+        use grammar_rs::core::traits::Checker;
+
+        let checker = ProhibitChecker::new();
+        let tokenizer = SimpleTokenizer::new();
+        let analyzer = PassthroughAnalyzer::new();
+
+        let prohibit_cases = vec![
+            ("Christoper went to the store.", true, "Christopher"),
+            ("The GDPR-complaint system works.", true, "GDPR-compliant"),
+            ("Christopher is here.", false, ""),
+            ("The system is GDPR-compliant.", false, ""),
+        ];
+
+        let mut tp = 0;
+        let mut fp = 0;
+        let mut fn_count = 0;
+        let mut tn = 0;
+
+        for (text, should_detect, expected_suggestion) in &prohibit_cases {
+            let tokens = tokenizer.tokenize(text);
+            let analyzed = analyzer.analyze(tokens);
+            let result = checker.check(text, &analyzed);
+
+            let has_match = result.matches.iter().any(|m| m.rule_id == "PROHIBIT");
+
+            if *should_detect {
+                if has_match {
+                    tp += 1;
+                    // Verify suggestion
+                    let has_correct_suggestion = result.matches.iter()
+                        .any(|m| m.suggestions.contains(&expected_suggestion.to_string()));
+                    if !has_correct_suggestion && !expected_suggestion.is_empty() {
+                        eprintln!("  Warning: expected suggestion '{}' not found", expected_suggestion);
+                    }
+                } else {
+                    fn_count += 1;
+                    eprintln!("  FN: prohibit word not detected in \"{}\"", text);
+                }
+            } else {
+                if has_match {
+                    fp += 1;
+                    eprintln!("  FP: unexpected prohibit match in \"{}\"", text);
+                } else {
+                    tn += 1;
+                }
+            }
+        }
+
+        prohibit_cat.detected = tp;
+        prohibit_cat.total = tp + fn_count;
+        println!("  TP: {}, FP: {}, FN: {}, TN: {}", tp, fp, fn_count, tn);
+        let prohibit_metrics = QualityMetrics {
+            true_positives: tp,
+            false_positives: fp,
+            false_negatives: fn_count,
+            true_negatives: tn,
+        };
+        println!("  Precision: {:.1}%", prohibit_metrics.precision() * 100.0);
+        println!("  Recall:    {:.1}%", prohibit_metrics.recall() * 100.0);
+        println!("  F1 Score:  {:.1}%", prohibit_metrics.f1() * 100.0);
+        total_metrics.merge(&prohibit_metrics);
+    }
+    categories.push(prohibit_cat);
+
     // --- Non-implemented categories (roadmap) ---
     let not_implemented: Vec<CategoryCoverage> = vec![
         // All rules from roadmap now implemented!
