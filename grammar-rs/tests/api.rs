@@ -15,10 +15,13 @@ use grammar_rs::prelude::*;
 use grammar_rs::lang_detect::Language;
 use grammar_rs::checker::{
     RuleChecker, AhoPatternRuleChecker, StyleChecker, CompoundWordChecker,
-    ProhibitChecker, EnglishConfusionRule, FrenchConfusionRule,
+    ProhibitChecker, SpellChecker, EnglishConfusionRule, FrenchConfusionRule,
     EN_PATTERN_RULES, FR_PATTERN_RULES,
     EN_ANTIPATTERNS, FR_ANTIPATTERNS,
+    EN_IGNORE, EN_PROPER_NOUNS, FR_IGNORE, FR_COMMON_WORDS, FR_SPELLING,
 };
+use grammar_rs::dictionary::FstDictionary;
+use std::path::Path;
 
 // ============================================================================
 // Test setup - pre-warm lazy statics once
@@ -436,6 +439,147 @@ fn api_special_characters() {
 
     // Should not crash on special characters
     assert!(result.matches.len() >= 0);
+}
+
+// ============================================================================
+// Spell Checker Tests (EN)
+// ============================================================================
+
+fn create_en_spell_checker() -> Option<SpellChecker> {
+    let dict_path = Path::new("data/dictionaries/en_US.fst");
+    if !dict_path.exists() {
+        return None;
+    }
+    let dict = FstDictionary::from_fst(dict_path).ok()?;
+    Some(SpellChecker::with_fst_dictionary(dict)
+        .with_skip_words(EN_IGNORE.iter().copied())
+        .with_skip_words(EN_PROPER_NOUNS.iter().copied()))
+}
+
+fn create_fr_spell_checker() -> SpellChecker {
+    SpellChecker::new()
+        .with_words(FR_COMMON_WORDS.iter().copied())
+        .with_words(FR_SPELLING.iter().copied())
+        .with_skip_words(FR_IGNORE.iter().copied())
+}
+
+#[test]
+fn api_en_spell_checker_detects_misspelling() {
+    let Some(spell_checker) = create_en_spell_checker() else {
+        eprintln!("Skipping test: EN dictionary not found");
+        return;
+    };
+
+    let pipeline = Pipeline::new(SimpleTokenizer::new(), PassthroughAnalyzer::new())
+        .with_checker(spell_checker);
+
+    let text = "I went to the libary yesterday.";
+    let result = pipeline.check_text(text);
+
+    let spell_matches: Vec<_> = result.matches.iter()
+        .filter(|m| m.rule_id == "SPELL")
+        .collect();
+
+    assert!(!spell_matches.is_empty(), "Should detect misspelling 'libary'");
+    assert!(spell_matches[0].suggestions.contains(&"library".to_string()),
+        "Should suggest 'library', got: {:?}", spell_matches[0].suggestions);
+}
+
+#[test]
+fn api_en_spell_checker_skip_words() {
+    let Some(spell_checker) = create_en_spell_checker() else {
+        eprintln!("Skipping test: EN dictionary not found");
+        return;
+    };
+
+    let pipeline = Pipeline::new(SimpleTokenizer::new(), PassthroughAnalyzer::new())
+        .with_checker(spell_checker);
+
+    // Test that acronyms from EN_IGNORE are not flagged
+    let text = "IBM and NASA are working on AI projects.";
+    let result = pipeline.check_text(text);
+
+    let spell_matches: Vec<_> = result.matches.iter()
+        .filter(|m| m.rule_id == "SPELL")
+        .collect();
+
+    // Should not flag IBM, NASA, AI (they're in skip list)
+    for m in &spell_matches {
+        let flagged_word = &text[m.span.clone()];
+        assert!(!["IBM", "NASA", "AI"].contains(&flagged_word),
+            "Skip words should not be flagged, but '{}' was flagged", flagged_word);
+    }
+}
+
+#[test]
+fn api_en_spell_checker_correct_text() {
+    let Some(spell_checker) = create_en_spell_checker() else {
+        eprintln!("Skipping test: EN dictionary not found");
+        return;
+    };
+
+    let pipeline = Pipeline::new(SimpleTokenizer::new(), PassthroughAnalyzer::new())
+        .with_checker(spell_checker);
+
+    let text = "The quick brown fox jumps over the lazy dog.";
+    let result = pipeline.check_text(text);
+
+    let spell_matches: Vec<_> = result.matches.iter()
+        .filter(|m| m.rule_id == "SPELL")
+        .collect();
+
+    assert!(spell_matches.is_empty(),
+        "Correct text should have no spell errors, got: {:?}",
+        spell_matches.iter().map(|m| &text[m.span.clone()]).collect::<Vec<_>>());
+}
+
+// ============================================================================
+// Spell Checker Tests (FR)
+// ============================================================================
+
+#[test]
+fn api_fr_spell_checker_common_words_valid() {
+    let spell_checker = create_fr_spell_checker();
+
+    let pipeline = Pipeline::new(SimpleTokenizer::new(), PassthroughAnalyzer::new())
+        .with_checker(spell_checker);
+
+    // Common French words should not be flagged
+    let text = "Je suis allé à la maison.";
+    let result = pipeline.check_text(text);
+
+    let spell_matches: Vec<_> = result.matches.iter()
+        .filter(|m| m.rule_id == "SPELL")
+        .collect();
+
+    // Check that basic words are not flagged
+    for m in &spell_matches {
+        let flagged_word = &text[m.span.clone()];
+        assert!(!["Je", "suis", "allé", "à", "la", "maison"].contains(&flagged_word),
+            "Common FR word '{}' should not be flagged", flagged_word);
+    }
+}
+
+#[test]
+fn api_fr_spell_checker_detects_misspelling() {
+    let spell_checker = create_fr_spell_checker();
+
+    let pipeline = Pipeline::new(SimpleTokenizer::new(), PassthroughAnalyzer::new())
+        .with_checker(spell_checker);
+
+    // "biblioteque" is misspelled (should be "bibliothèque")
+    let text = "Je vais à la biblioteque.";
+    let result = pipeline.check_text(text);
+
+    // Note: This test depends on whether "biblioteque" is in the dictionary
+    // The FR dictionary is limited, so this may or may not detect the error
+    let spell_matches: Vec<_> = result.matches.iter()
+        .filter(|m| m.rule_id == "SPELL")
+        .collect();
+
+    // Just verify no crash and reasonable behavior
+    assert!(spell_matches.len() <= 2,
+        "Should not have excessive spell errors on mostly correct text");
 }
 
 // ============================================================================

@@ -29,8 +29,13 @@ cargo run --bin sync-lt -- --languagetool-path ../languagetool
 cargo run --bin sync-lt -- --languagetool-path ../languagetool --force
 
 # Tests
-cargo test
+cargo test              # Tous les tests
+cargo test --test api   # Tests E2E (pipelines complets)
+cargo test --lib        # Tests unitaires uniquement
 ```
+
+## Tester les features
+**IMPORTANT:** Pour tester une nouvelle feature, ajouter des tests dans `tests/api.rs` (E2E) plutôt que des scripts ad-hoc ou des appels curl/python. Les tests E2E vérifient le comportement réel des pipelines.
 
 ---
 
