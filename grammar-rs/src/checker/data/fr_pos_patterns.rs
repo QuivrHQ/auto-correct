@@ -1,6 +1,6 @@
 //! Auto-generated POS pattern rules for FR from LanguageTool
 //! Source: fr/grammar.xml
-//! Synced: 2026-01-23T13:17:51.676785418+00:00
+//! Synced: 2026-01-23T13:30:58.150729197+00:00
 //! Total rules: 25
 //! DO NOT EDIT MANUALLY - Run `cargo run --bin sync-lt` to update
 //!

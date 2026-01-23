@@ -1,5 +1,5 @@
 //! Auto-generated spelling word list for FR from LanguageTool
-//! Synced: 2026-01-23T13:17:51.785607093+00:00
+//! Synced: 2026-01-23T13:30:58.260680568+00:00
 //! Total words: 34099
 //! DO NOT EDIT MANUALLY - Run `cargo run --bin sync-lt` to update
 //!

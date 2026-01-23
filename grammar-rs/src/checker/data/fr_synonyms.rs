@@ -1,5 +1,5 @@
 //! Auto-generated synonym rules for FR from LanguageTool
-//! Synced: 2026-01-23T13:17:51.709579287+00:00
+//! Synced: 2026-01-23T13:30:58.183373775+00:00
 //! Total rules: 142
 //! DO NOT EDIT MANUALLY - Run `cargo run --bin sync-lt` to update
 //!

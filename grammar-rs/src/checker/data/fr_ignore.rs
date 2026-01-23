@@ -1,5 +1,5 @@
 //! Auto-generated ignore word list for FR from LanguageTool
-//! Synced: 2026-01-23T13:17:51.824653476+00:00
+//! Synced: 2026-01-23T13:30:58.299568481+00:00
 //! Total words: 1506
 //! DO NOT EDIT MANUALLY - Run `cargo run --bin sync-lt` to update
 //!

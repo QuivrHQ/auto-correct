@@ -1,5 +1,5 @@
 //! Auto-generated common words for FR from LanguageTool
-//! Synced: 2026-01-23T13:17:51.698709217+00:00
+//! Synced: 2026-01-23T13:30:58.172835061+00:00
 //! Total words: 9729
 //! DO NOT EDIT MANUALLY - Run `cargo run --bin sync-lt` to update
 //!

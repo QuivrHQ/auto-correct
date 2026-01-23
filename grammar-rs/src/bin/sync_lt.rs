@@ -161,6 +161,33 @@ struct MultiwordEntry {
     pos_tag: String,
 }
 
+#[derive(Debug, Clone)]
+struct WordDefinition {
+    word: String,
+    definition: String,
+}
+
+#[derive(Debug, Clone)]
+struct UsGbMapping {
+    us_word: String,
+    gb_word: String,
+}
+
+#[derive(Debug, Clone)]
+struct L2ConfusionPair {
+    word1: String,
+    word2: String,
+    factor: u64,
+    native_language: String,
+}
+
+#[derive(Debug, Clone)]
+struct PosTaggedWord {
+    word: String,
+    base_form: String,
+    pos_tag: String,
+}
+
 #[derive(Debug, Default)]
 struct SyncStats {
     grammar_rules: usize,
@@ -188,6 +215,16 @@ struct SyncStats {
     hyphenated_words: usize,
     spelling_words: usize,
     ignore_words: usize,
+    // Phase 4
+    word_definitions: usize,
+    prohibit_words: usize,
+    us_gb_mappings: usize,
+    confusion_l2_de: usize,
+    confusion_l2_es: usize,
+    confusion_l2_fr: usize,
+    confusion_l2_nl: usize,
+    added_words: usize,
+    numbers_words: usize,
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -237,6 +274,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         total_stats.hyphenated_words += stats.hyphenated_words;
         total_stats.spelling_words += stats.spelling_words;
         total_stats.ignore_words += stats.ignore_words;
+        // Phase 4
+        total_stats.word_definitions += stats.word_definitions;
+        total_stats.prohibit_words += stats.prohibit_words;
+        total_stats.us_gb_mappings += stats.us_gb_mappings;
+        total_stats.confusion_l2_de += stats.confusion_l2_de;
+        total_stats.confusion_l2_es += stats.confusion_l2_es;
+        total_stats.confusion_l2_fr += stats.confusion_l2_fr;
+        total_stats.confusion_l2_nl += stats.confusion_l2_nl;
+        total_stats.added_words += stats.added_words;
+        total_stats.numbers_words += stats.numbers_words;
     }
 
     println!("\n{}", "=".repeat(70));
@@ -283,6 +330,22 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!(
         "  Spelling: {} | Ignore: {}",
         total_stats.spelling_words, total_stats.ignore_words
+    );
+    // Phase 4 stats
+    println!(
+        "  Word definitions: {} | US/GB mappings: {} | Prohibit: {}",
+        total_stats.word_definitions, total_stats.us_gb_mappings, total_stats.prohibit_words
+    );
+    let total_l2 = total_stats.confusion_l2_de + total_stats.confusion_l2_es
+        + total_stats.confusion_l2_fr + total_stats.confusion_l2_nl;
+    println!(
+        "  L2 confusion: {} (DE:{} ES:{} FR:{} NL:{})",
+        total_l2, total_stats.confusion_l2_de, total_stats.confusion_l2_es,
+        total_stats.confusion_l2_fr, total_stats.confusion_l2_nl
+    );
+    println!(
+        "  Added words: {} | Numbers: {}",
+        total_stats.added_words, total_stats.numbers_words
     );
     println!("{}", "=".repeat(70));
 
@@ -819,6 +882,139 @@ fn sync_language(lt_path: &Path, lang: &str) -> Result<SyncStats, Box<dyn std::e
         if !words.is_empty() {
             let code = generate_word_list_file(&words, lang, "ignore", "Ignored words (should not trigger spell check errors)");
             let output_path = output_dir.join(format!("{}_ignore.rs", lang));
+            fs::write(&output_path, code)?;
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════════
+    // Phase 4: Additional LanguageTool resources
+    // ═══════════════════════════════════════════════════════════════════════════════
+
+    // 20. Sync word_definitions.txt -> word definitions for disambiguation (EN only)
+    let word_definitions_path = resource_path.join("word_definitions.txt");
+    if word_definitions_path.exists() {
+        let definitions = parse_word_definitions(&word_definitions_path)?;
+        stats.word_definitions = definitions.len();
+        println!("   word_definitions.txt: {} definitions", stats.word_definitions);
+
+        if !definitions.is_empty() {
+            let code = generate_word_definitions_file(&definitions, lang);
+            let output_path = output_dir.join(format!("{}_word_definitions.rs", lang));
+            fs::write(&output_path, code)?;
+        }
+    }
+
+    // 21. Sync prohibit.txt -> words that should be marked as errors
+    let prohibit_path = hunspell_path.join("prohibit.txt");
+    if prohibit_path.exists() {
+        let words = parse_word_list(&prohibit_path)?;
+        stats.prohibit_words = words.len();
+        println!("   prohibit.txt: {} words", stats.prohibit_words);
+
+        if !words.is_empty() {
+            let code = generate_word_list_file(&words, lang, "prohibit", "Prohibited words (should be marked as spelling errors)");
+            let output_path = output_dir.join(format!("{}_prohibit.rs", lang));
+            fs::write(&output_path, code)?;
+        }
+    }
+
+    // 22. Sync en-US-GB.txt -> US/UK spelling mappings (EN only)
+    let us_gb_path = resource_path.join("en-US-GB.txt");
+    if us_gb_path.exists() {
+        let mappings = parse_us_gb_mappings(&us_gb_path)?;
+        stats.us_gb_mappings = mappings.len();
+        println!("   en-US-GB.txt: {} mappings", stats.us_gb_mappings);
+
+        if !mappings.is_empty() {
+            let code = generate_us_gb_file(&mappings, lang);
+            let output_path = output_dir.join(format!("{}_us_gb.rs", lang));
+            fs::write(&output_path, code)?;
+        }
+    }
+
+    // 23. Sync confusion_sets_l2_*.txt -> L2 learner confusion sets (EN only)
+    if lang == "en" {
+        // German native speakers
+        let l2_de_path = resource_path.join("confusion_sets_l2_de.txt");
+        if l2_de_path.exists() {
+            let pairs = parse_confusion_l2(&l2_de_path, "de")?;
+            stats.confusion_l2_de = pairs.len();
+            println!("   confusion_sets_l2_de.txt: {} pairs", stats.confusion_l2_de);
+
+            if !pairs.is_empty() {
+                let code = generate_confusion_l2_file(&pairs, lang, "de");
+                let output_path = output_dir.join(format!("{}_confusion_l2_de.rs", lang));
+                fs::write(&output_path, code)?;
+            }
+        }
+
+        // Spanish native speakers
+        let l2_es_path = resource_path.join("confusion_sets_l2_es.txt");
+        if l2_es_path.exists() {
+            let pairs = parse_confusion_l2(&l2_es_path, "es")?;
+            stats.confusion_l2_es = pairs.len();
+            println!("   confusion_sets_l2_es.txt: {} pairs", stats.confusion_l2_es);
+
+            if !pairs.is_empty() {
+                let code = generate_confusion_l2_file(&pairs, lang, "es");
+                let output_path = output_dir.join(format!("{}_confusion_l2_es.rs", lang));
+                fs::write(&output_path, code)?;
+            }
+        }
+
+        // French native speakers
+        let l2_fr_path = resource_path.join("confusion_sets_l2_fr.txt");
+        if l2_fr_path.exists() {
+            let pairs = parse_confusion_l2(&l2_fr_path, "fr")?;
+            stats.confusion_l2_fr = pairs.len();
+            println!("   confusion_sets_l2_fr.txt: {} pairs", stats.confusion_l2_fr);
+
+            if !pairs.is_empty() {
+                let code = generate_confusion_l2_file(&pairs, lang, "fr");
+                let output_path = output_dir.join(format!("{}_confusion_l2_fr.rs", lang));
+                fs::write(&output_path, code)?;
+            }
+        }
+
+        // Dutch native speakers
+        let l2_nl_path = resource_path.join("confusion_sets_l2_nl.txt");
+        if l2_nl_path.exists() {
+            let pairs = parse_confusion_l2(&l2_nl_path, "nl")?;
+            stats.confusion_l2_nl = pairs.len();
+            println!("   confusion_sets_l2_nl.txt: {} pairs", stats.confusion_l2_nl);
+
+            if !pairs.is_empty() {
+                let code = generate_confusion_l2_file(&pairs, lang, "nl");
+                let output_path = output_dir.join(format!("{}_confusion_l2_nl.rs", lang));
+                fs::write(&output_path, code)?;
+            }
+        }
+    }
+
+    // 24. Sync added.txt -> POS-tagged words to add to dictionary
+    let added_path = resource_path.join("added.txt");
+    if added_path.exists() {
+        let words = parse_pos_tagged_words(&added_path)?;
+        stats.added_words = words.len();
+        println!("   added.txt: {} POS-tagged words", stats.added_words);
+
+        if !words.is_empty() {
+            let code = generate_pos_tagged_words_file(&words, lang);
+            let output_path = output_dir.join(format!("{}_added.rs", lang));
+            fs::write(&output_path, code)?;
+        }
+    }
+
+    // 25. Sync numbers.txt -> number words (EN only)
+    let numbers_path = resource_path.join("numbers.txt");
+    if numbers_path.exists() {
+        let words = parse_word_list(&numbers_path)?;
+        stats.numbers_words = words.len();
+        println!("   numbers.txt: {} number words", stats.numbers_words);
+
+        if !words.is_empty() {
+            let code = generate_word_list_file(&words, lang, "numbers", "Number words (one, two, three, etc.)");
+            let output_path = output_dir.join(format!("{}_numbers.rs", lang));
             fs::write(&output_path, code)?;
         }
     }
@@ -2549,6 +2745,16 @@ fn update_data_mod(output_dir: &Path, lang: &str) -> Result<(), Box<dyn std::err
     let hyphenated_mod = format!("pub mod {}_hyphenated;", lang);
     let spelling_mod = format!("pub mod {}_spelling;", lang);
     let ignore_mod = format!("pub mod {}_ignore;", lang);
+    // Phase 4 modules
+    let word_definitions_mod = format!("pub mod {}_word_definitions;", lang);
+    let prohibit_mod = format!("pub mod {}_prohibit;", lang);
+    let us_gb_mod = format!("pub mod {}_us_gb;", lang);
+    let l2_de_mod = format!("pub mod {}_confusion_l2_de;", lang);
+    let l2_es_mod = format!("pub mod {}_confusion_l2_es;", lang);
+    let l2_fr_mod = format!("pub mod {}_confusion_l2_fr;", lang);
+    let l2_nl_mod = format!("pub mod {}_confusion_l2_nl;", lang);
+    let added_mod = format!("pub mod {}_added;", lang);
+    let numbers_mod = format!("pub mod {}_numbers;", lang);
 
     // Check if files exist
     let patterns_exists = output_dir.join(format!("{}_patterns.rs", lang)).exists();
@@ -2573,6 +2779,16 @@ fn update_data_mod(output_dir: &Path, lang: &str) -> Result<(), Box<dyn std::err
     let hyphenated_exists = output_dir.join(format!("{}_hyphenated.rs", lang)).exists();
     let spelling_exists = output_dir.join(format!("{}_spelling.rs", lang)).exists();
     let ignore_exists = output_dir.join(format!("{}_ignore.rs", lang)).exists();
+    // Phase 4 file checks
+    let word_definitions_exists = output_dir.join(format!("{}_word_definitions.rs", lang)).exists();
+    let prohibit_exists = output_dir.join(format!("{}_prohibit.rs", lang)).exists();
+    let us_gb_exists = output_dir.join(format!("{}_us_gb.rs", lang)).exists();
+    let l2_de_exists = output_dir.join(format!("{}_confusion_l2_de.rs", lang)).exists();
+    let l2_es_exists = output_dir.join(format!("{}_confusion_l2_es.rs", lang)).exists();
+    let l2_fr_exists = output_dir.join(format!("{}_confusion_l2_fr.rs", lang)).exists();
+    let l2_nl_exists = output_dir.join(format!("{}_confusion_l2_nl.rs", lang)).exists();
+    let added_exists = output_dir.join(format!("{}_added.rs", lang)).exists();
+    let numbers_exists = output_dir.join(format!("{}_numbers.rs", lang)).exists();
 
     if patterns_exists && !content.contains(&patterns_mod) {
         content.push_str(&format!("{}\n", patterns_mod));
@@ -2660,6 +2876,43 @@ fn update_data_mod(output_dir: &Path, lang: &str) -> Result<(), Box<dyn std::err
 
     if ignore_exists && !content.contains(&ignore_mod) {
         content.push_str(&format!("{}\n", ignore_mod));
+    }
+
+    // Phase 4 modules
+    if word_definitions_exists && !content.contains(&word_definitions_mod) {
+        content.push_str(&format!("{}\n", word_definitions_mod));
+    }
+
+    if prohibit_exists && !content.contains(&prohibit_mod) {
+        content.push_str(&format!("{}\n", prohibit_mod));
+    }
+
+    if us_gb_exists && !content.contains(&us_gb_mod) {
+        content.push_str(&format!("{}\n", us_gb_mod));
+    }
+
+    if l2_de_exists && !content.contains(&l2_de_mod) {
+        content.push_str(&format!("{}\n", l2_de_mod));
+    }
+
+    if l2_es_exists && !content.contains(&l2_es_mod) {
+        content.push_str(&format!("{}\n", l2_es_mod));
+    }
+
+    if l2_fr_exists && !content.contains(&l2_fr_mod) {
+        content.push_str(&format!("{}\n", l2_fr_mod));
+    }
+
+    if l2_nl_exists && !content.contains(&l2_nl_mod) {
+        content.push_str(&format!("{}\n", l2_nl_mod));
+    }
+
+    if added_exists && !content.contains(&added_mod) {
+        content.push_str(&format!("{}\n", added_mod));
+    }
+
+    if numbers_exists && !content.contains(&numbers_mod) {
+        content.push_str(&format!("{}\n", numbers_mod));
     }
 
     // Add re-exports if not present
@@ -2822,6 +3075,90 @@ fn update_data_mod(output_dir: &Path, lang: &str) -> Result<(), Box<dyn std::err
         );
         if !content.contains(&format!("{}_synonyms::", lang)) {
             content.push_str(&format!("\n{}\n", synonyms_export));
+        }
+    }
+
+    // Phase 4 re-exports
+    if word_definitions_exists {
+        let export = format!(
+            "pub use {}_word_definitions::{{WordDefinition, {}_WORD_DEFINITIONS, get_{}_word_definition}};",
+            lang,
+            lang.to_uppercase(),
+            lang
+        );
+        if !content.contains(&format!("{}_word_definitions::", lang)) {
+            content.push_str(&format!("\n{}\n", export));
+        }
+    }
+
+    if us_gb_exists {
+        let export = format!(
+            "pub use {}_us_gb::{{UsGbMapping, {}_US_GB_MAPPINGS, us_to_gb, gb_to_us, is_us_spelling, is_gb_spelling}};",
+            lang,
+            lang.to_uppercase()
+        );
+        if !content.contains(&format!("{}_us_gb::", lang)) {
+            content.push_str(&format!("\n{}\n", export));
+        }
+    }
+
+    if l2_de_exists {
+        let export = format!(
+            "pub use {}_confusion_l2_de::{{L2ConfusionPair as L2ConfusionPairDe, {}_L2_DE_CONFUSION_PAIRS, get_{}_l2_de_confusion}};",
+            lang,
+            lang.to_uppercase(),
+            lang
+        );
+        if !content.contains(&format!("{}_confusion_l2_de::", lang)) {
+            content.push_str(&format!("\n{}\n", export));
+        }
+    }
+
+    if l2_es_exists {
+        let export = format!(
+            "pub use {}_confusion_l2_es::{{L2ConfusionPair as L2ConfusionPairEs, {}_L2_ES_CONFUSION_PAIRS, get_{}_l2_es_confusion}};",
+            lang,
+            lang.to_uppercase(),
+            lang
+        );
+        if !content.contains(&format!("{}_confusion_l2_es::", lang)) {
+            content.push_str(&format!("\n{}\n", export));
+        }
+    }
+
+    if l2_fr_exists {
+        let export = format!(
+            "pub use {}_confusion_l2_fr::{{L2ConfusionPair as L2ConfusionPairFr, {}_L2_FR_CONFUSION_PAIRS, get_{}_l2_fr_confusion}};",
+            lang,
+            lang.to_uppercase(),
+            lang
+        );
+        if !content.contains(&format!("{}_confusion_l2_fr::", lang)) {
+            content.push_str(&format!("\n{}\n", export));
+        }
+    }
+
+    if l2_nl_exists {
+        let export = format!(
+            "pub use {}_confusion_l2_nl::{{L2ConfusionPair as L2ConfusionPairNl, {}_L2_NL_CONFUSION_PAIRS, get_{}_l2_nl_confusion}};",
+            lang,
+            lang.to_uppercase(),
+            lang
+        );
+        if !content.contains(&format!("{}_confusion_l2_nl::", lang)) {
+            content.push_str(&format!("\n{}\n", export));
+        }
+    }
+
+    if added_exists {
+        let export = format!(
+            "pub use {}_added::{{PosTaggedWord, {}_ADDED_WORDS, get_{}_added_word}};",
+            lang,
+            lang.to_uppercase(),
+            lang
+        );
+        if !content.contains(&format!("{}_added::", lang)) {
+            content.push_str(&format!("\n{}\n", export));
         }
     }
 
@@ -3975,6 +4312,595 @@ fn generate_multiwords_file(entries: &[MultiwordEntry], lang: &str) -> String {
         "/// Get multiword entry for a phrase (case-insensitive)\n\
          pub fn get_{}_multiword(phrase: &str) -> Option<&'static MultiwordEntry> {{\n\
          \t{}_MULTIWORD_LOOKUP.get(&phrase.to_lowercase()).copied()\n\
+         }}\n",
+        lang.to_lowercase(),
+        lang.to_uppercase()
+    ));
+
+    output
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Phase 4: Parser - word_definitions.txt
+// ═══════════════════════════════════════════════════════════════════════════════
+
+fn parse_word_definitions(path: &Path) -> Result<Vec<WordDefinition>, Box<dyn std::error::Error>> {
+    let file = fs::File::open(path)?;
+    let reader = BufReader::new(file);
+    let mut definitions = Vec::new();
+
+    for line in reader.lines() {
+        let line = line?;
+        let line = line.trim();
+
+        // Skip comments and empty lines
+        if line.is_empty() || line.starts_with('#') {
+            continue;
+        }
+
+        // Format: word\tdefinition
+        let parts: Vec<&str> = line.splitn(2, '\t').collect();
+        if parts.len() < 2 {
+            continue;
+        }
+
+        let word = parts[0].trim();
+        let definition = parts[1].trim();
+
+        if word.is_empty() || definition.is_empty() {
+            continue;
+        }
+
+        definitions.push(WordDefinition {
+            word: word.to_string(),
+            definition: definition.to_string(),
+        });
+    }
+
+    // Sort by word
+    definitions.sort_by(|a, b| a.word.to_lowercase().cmp(&b.word.to_lowercase()));
+
+    Ok(definitions)
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Phase 4: Generator - word_definitions
+// ═══════════════════════════════════════════════════════════════════════════════
+
+fn generate_word_definitions_file(definitions: &[WordDefinition], lang: &str) -> String {
+    let mut output = String::new();
+    let timestamp = chrono::Utc::now().to_rfc3339();
+
+    output.push_str(&format!(
+        "//! Auto-generated word definitions for {} from LanguageTool\n\
+         //! Synced: {}\n\
+         //! Total definitions: {}\n\
+         //! DO NOT EDIT MANUALLY - Run `cargo run --bin sync-lt` to update\n\
+         //!\n\
+         //! Source: LanguageTool word_definitions.txt\n\
+         //! License: LGPL 2.1+\n\
+         //!\n\
+         //! Word definitions used for semantic disambiguation.\n\n",
+        lang.to_uppercase(),
+        timestamp,
+        definitions.len()
+    ));
+
+    // Define the entry struct
+    output.push_str("/// A word definition entry\n");
+    output.push_str("#[derive(Debug, Clone, Copy)]\n");
+    output.push_str("pub struct WordDefinition {\n");
+    output.push_str("    /// The word\n");
+    output.push_str("    pub word: &'static str,\n");
+    output.push_str("    /// Short definition (< 40 chars)\n");
+    output.push_str("    pub definition: &'static str,\n");
+    output.push_str("}\n\n");
+
+    output.push_str(&format!(
+        "/// Word definitions for {} (sorted by word)\n",
+        lang.to_uppercase()
+    ));
+    output.push_str(&format!("/// Total definitions: {}\n", definitions.len()));
+    output.push_str(&format!(
+        "pub const {}_WORD_DEFINITIONS: &[WordDefinition] = &[\n",
+        lang.to_uppercase()
+    ));
+
+    for def in definitions {
+        output.push_str(&format!(
+            "    WordDefinition {{ word: \"{}\", definition: \"{}\" }},\n",
+            escape_string(&def.word),
+            escape_string(&def.definition)
+        ));
+    }
+
+    output.push_str("];\n\n");
+
+    // Build lookup map
+    output.push_str("use std::collections::HashMap;\n");
+    output.push_str("use std::sync::LazyLock;\n\n");
+
+    output.push_str(&format!(
+        "/// Lookup map for word definitions\n\
+         pub static {}_WORD_DEFINITION_LOOKUP: LazyLock<HashMap<String, &'static WordDefinition>> = LazyLock::new(|| {{\n\
+         \tlet mut map = HashMap::new();\n\
+         \tfor def in {}_WORD_DEFINITIONS {{\n\
+         \t\tmap.insert(def.word.to_lowercase(), def);\n\
+         \t}}\n\
+         \tmap\n\
+         }});\n\n",
+        lang.to_uppercase(),
+        lang.to_uppercase()
+    ));
+
+    // Generate lookup function
+    output.push_str(&format!(
+        "/// Get definition for a word (case-insensitive)\n\
+         pub fn get_{}_word_definition(word: &str) -> Option<&'static str> {{\n\
+         \t{}_WORD_DEFINITION_LOOKUP.get(&word.to_lowercase()).map(|d| d.definition)\n\
+         }}\n",
+        lang.to_lowercase(),
+        lang.to_uppercase()
+    ));
+
+    output
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Phase 4: Parser - en-US-GB.txt
+// ═══════════════════════════════════════════════════════════════════════════════
+
+fn parse_us_gb_mappings(path: &Path) -> Result<Vec<UsGbMapping>, Box<dyn std::error::Error>> {
+    let file = fs::File::open(path)?;
+    let reader = BufReader::new(file);
+    let mut mappings = Vec::new();
+
+    for line in reader.lines() {
+        let line = line?;
+        let line = line.trim();
+
+        // Skip comments and empty lines
+        if line.is_empty() || line.starts_with('#') {
+            continue;
+        }
+
+        // Format: us_word;gb_word
+        let parts: Vec<&str> = line.split(';').collect();
+        if parts.len() < 2 {
+            continue;
+        }
+
+        let us_word = parts[0].trim();
+        let gb_word = parts[1].trim();
+
+        if us_word.is_empty() || gb_word.is_empty() {
+            continue;
+        }
+
+        mappings.push(UsGbMapping {
+            us_word: us_word.to_string(),
+            gb_word: gb_word.to_string(),
+        });
+    }
+
+    // Sort by US word
+    mappings.sort_by(|a, b| a.us_word.to_lowercase().cmp(&b.us_word.to_lowercase()));
+
+    Ok(mappings)
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Phase 4: Generator - US/GB mappings
+// ═══════════════════════════════════════════════════════════════════════════════
+
+fn generate_us_gb_file(mappings: &[UsGbMapping], lang: &str) -> String {
+    let mut output = String::new();
+    let timestamp = chrono::Utc::now().to_rfc3339();
+
+    output.push_str(&format!(
+        "//! Auto-generated US/GB spelling mappings for {} from LanguageTool\n\
+         //! Synced: {}\n\
+         //! Total mappings: {}\n\
+         //! DO NOT EDIT MANUALLY - Run `cargo run --bin sync-lt` to update\n\
+         //!\n\
+         //! Source: LanguageTool en-US-GB.txt\n\
+         //! License: LGPL 2.1+\n\
+         //!\n\
+         //! Mappings between US and British English spellings.\n\n",
+        lang.to_uppercase(),
+        timestamp,
+        mappings.len()
+    ));
+
+    // Define the entry struct
+    output.push_str("/// A US/GB spelling mapping\n");
+    output.push_str("#[derive(Debug, Clone, Copy)]\n");
+    output.push_str("pub struct UsGbMapping {\n");
+    output.push_str("    /// US spelling\n");
+    output.push_str("    pub us_word: &'static str,\n");
+    output.push_str("    /// British spelling\n");
+    output.push_str("    pub gb_word: &'static str,\n");
+    output.push_str("}\n\n");
+
+    output.push_str(&format!(
+        "/// US/GB spelling mappings (sorted by US spelling)\n"
+    ));
+    output.push_str(&format!("/// Total mappings: {}\n", mappings.len()));
+    output.push_str(&format!(
+        "pub const {}_US_GB_MAPPINGS: &[UsGbMapping] = &[\n",
+        lang.to_uppercase()
+    ));
+
+    for mapping in mappings {
+        output.push_str(&format!(
+            "    UsGbMapping {{ us_word: \"{}\", gb_word: \"{}\" }},\n",
+            escape_string(&mapping.us_word),
+            escape_string(&mapping.gb_word)
+        ));
+    }
+
+    output.push_str("];\n\n");
+
+    // Build lookup maps (both directions)
+    output.push_str("use std::collections::HashMap;\n");
+    output.push_str("use std::sync::LazyLock;\n\n");
+
+    // US -> GB lookup
+    output.push_str(&format!(
+        "/// Lookup map: US -> GB spelling\n\
+         pub static {}_US_TO_GB: LazyLock<HashMap<String, &'static str>> = LazyLock::new(|| {{\n\
+         \tlet mut map = HashMap::new();\n\
+         \tfor m in {}_US_GB_MAPPINGS {{\n\
+         \t\tmap.insert(m.us_word.to_lowercase(), m.gb_word);\n\
+         \t}}\n\
+         \tmap\n\
+         }});\n\n",
+        lang.to_uppercase(),
+        lang.to_uppercase()
+    ));
+
+    // GB -> US lookup
+    output.push_str(&format!(
+        "/// Lookup map: GB -> US spelling\n\
+         pub static {}_GB_TO_US: LazyLock<HashMap<String, &'static str>> = LazyLock::new(|| {{\n\
+         \tlet mut map = HashMap::new();\n\
+         \tfor m in {}_US_GB_MAPPINGS {{\n\
+         \t\tmap.insert(m.gb_word.to_lowercase(), m.us_word);\n\
+         \t}}\n\
+         \tmap\n\
+         }});\n\n",
+        lang.to_uppercase(),
+        lang.to_uppercase()
+    ));
+
+    // Generate lookup functions
+    output.push_str(&format!(
+        "/// Convert US spelling to GB spelling\n\
+         pub fn us_to_gb(word: &str) -> Option<&'static str> {{\n\
+         \t{}_US_TO_GB.get(&word.to_lowercase()).copied()\n\
+         }}\n\n",
+        lang.to_uppercase()
+    ));
+
+    output.push_str(&format!(
+        "/// Convert GB spelling to US spelling\n\
+         pub fn gb_to_us(word: &str) -> Option<&'static str> {{\n\
+         \t{}_GB_TO_US.get(&word.to_lowercase()).copied()\n\
+         }}\n\n",
+        lang.to_uppercase()
+    ));
+
+    output.push_str(&format!(
+        "/// Check if a word is a US spelling variant\n\
+         pub fn is_us_spelling(word: &str) -> bool {{\n\
+         \t{}_US_TO_GB.contains_key(&word.to_lowercase())\n\
+         }}\n\n",
+        lang.to_uppercase()
+    ));
+
+    output.push_str(&format!(
+        "/// Check if a word is a GB spelling variant\n\
+         pub fn is_gb_spelling(word: &str) -> bool {{\n\
+         \t{}_GB_TO_US.contains_key(&word.to_lowercase())\n\
+         }}\n",
+        lang.to_uppercase()
+    ));
+
+    output
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Phase 4: Parser - confusion_sets_l2_*.txt
+// ═══════════════════════════════════════════════════════════════════════════════
+
+fn parse_confusion_l2(path: &Path, native_lang: &str) -> Result<Vec<L2ConfusionPair>, Box<dyn std::error::Error>> {
+    let file = fs::File::open(path)?;
+    let reader = BufReader::new(file);
+    let mut pairs = Vec::new();
+
+    for line in reader.lines() {
+        let line = line?;
+        let line = line.trim();
+
+        // Skip comments and empty lines
+        if line.is_empty() || line.starts_with('#') {
+            continue;
+        }
+
+        // Remove inline comments
+        let line = if let Some(idx) = line.find('#') {
+            line[..idx].trim()
+        } else {
+            line
+        };
+
+        // Format: word1 -> word2; factor
+        // Example: abilities -> skills; 100000;
+        let parts: Vec<&str> = line.split("->").collect();
+        if parts.len() < 2 {
+            continue;
+        }
+
+        let word1 = parts[0].trim().to_string();
+        let rest = parts[1].trim();
+
+        // Parse word2 and factor
+        let parts: Vec<&str> = rest.split(';').collect();
+        if parts.is_empty() {
+            continue;
+        }
+
+        let word2 = parts[0].trim().to_string();
+        let factor = if parts.len() > 1 {
+            parts[1].trim().parse::<u64>().unwrap_or(100)
+        } else {
+            100
+        };
+
+        if word1.is_empty() || word2.is_empty() {
+            continue;
+        }
+
+        pairs.push(L2ConfusionPair {
+            word1,
+            word2,
+            factor,
+            native_language: native_lang.to_string(),
+        });
+    }
+
+    // Sort by word1
+    pairs.sort_by(|a, b| a.word1.to_lowercase().cmp(&b.word1.to_lowercase()));
+
+    Ok(pairs)
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Phase 4: Generator - L2 confusion pairs
+// ═══════════════════════════════════════════════════════════════════════════════
+
+fn generate_confusion_l2_file(pairs: &[L2ConfusionPair], lang: &str, native_lang: &str) -> String {
+    let mut output = String::new();
+    let timestamp = chrono::Utc::now().to_rfc3339();
+
+    let native_lang_name = match native_lang {
+        "de" => "German",
+        "es" => "Spanish",
+        "fr" => "French",
+        "nl" => "Dutch",
+        _ => native_lang,
+    };
+
+    output.push_str(&format!(
+        "//! Auto-generated L2 confusion pairs for {} native speakers writing {}\n\
+         //! Synced: {}\n\
+         //! Total pairs: {}\n\
+         //! DO NOT EDIT MANUALLY - Run `cargo run --bin sync-lt` to update\n\
+         //!\n\
+         //! Source: LanguageTool confusion_sets_l2_{}.txt\n\
+         //! License: LGPL 2.1+\n\
+         //!\n\
+         //! False friends and common mistakes made by {} native speakers.\n\n",
+        native_lang_name,
+        lang.to_uppercase(),
+        timestamp,
+        pairs.len(),
+        native_lang,
+        native_lang_name
+    ));
+
+    // Define the entry struct
+    output.push_str("/// An L2 confusion pair (false friend)\n");
+    output.push_str("#[derive(Debug, Clone, Copy)]\n");
+    output.push_str("pub struct L2ConfusionPair {\n");
+    output.push_str("    /// The word often confused (false friend in L1)\n");
+    output.push_str("    pub word1: &'static str,\n");
+    output.push_str("    /// The correct word to use instead\n");
+    output.push_str("    pub word2: &'static str,\n");
+    output.push_str("    /// Confidence factor (higher = more likely confusion)\n");
+    output.push_str("    pub factor: u64,\n");
+    output.push_str("}\n\n");
+
+    output.push_str(&format!(
+        "/// L2 confusion pairs for {} native speakers (sorted by word1)\n",
+        native_lang_name
+    ));
+    output.push_str(&format!("/// Total pairs: {}\n", pairs.len()));
+    output.push_str(&format!(
+        "pub const {}_L2_{}_CONFUSION_PAIRS: &[L2ConfusionPair] = &[\n",
+        lang.to_uppercase(),
+        native_lang.to_uppercase()
+    ));
+
+    for pair in pairs {
+        output.push_str(&format!(
+            "    L2ConfusionPair {{ word1: \"{}\", word2: \"{}\", factor: {} }},\n",
+            escape_string(&pair.word1),
+            escape_string(&pair.word2),
+            pair.factor
+        ));
+    }
+
+    output.push_str("];\n\n");
+
+    // Build lookup map
+    output.push_str("use std::collections::HashMap;\n");
+    output.push_str("use std::sync::LazyLock;\n\n");
+
+    output.push_str(&format!(
+        "/// Lookup map for L2 confusion pairs by word1\n\
+         pub static {}_L2_{}_CONFUSION_LOOKUP: LazyLock<HashMap<String, &'static L2ConfusionPair>> = LazyLock::new(|| {{\n\
+         \tlet mut map = HashMap::new();\n\
+         \tfor pair in {}_L2_{}_CONFUSION_PAIRS {{\n\
+         \t\tmap.insert(pair.word1.to_lowercase(), pair);\n\
+         \t}}\n\
+         \tmap\n\
+         }});\n\n",
+        lang.to_uppercase(),
+        native_lang.to_uppercase(),
+        lang.to_uppercase(),
+        native_lang.to_uppercase()
+    ));
+
+    // Generate lookup function
+    output.push_str(&format!(
+        "/// Check if a word might be a false friend for {} native speakers\n\
+         pub fn get_{}_l2_{}_confusion(word: &str) -> Option<&'static L2ConfusionPair> {{\n\
+         \t{}_L2_{}_CONFUSION_LOOKUP.get(&word.to_lowercase()).copied()\n\
+         }}\n",
+        native_lang_name,
+        lang.to_lowercase(),
+        native_lang,
+        lang.to_uppercase(),
+        native_lang.to_uppercase()
+    ));
+
+    output
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Phase 4: Parser - added.txt (POS-tagged words)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+fn parse_pos_tagged_words(path: &Path) -> Result<Vec<PosTaggedWord>, Box<dyn std::error::Error>> {
+    let file = fs::File::open(path)?;
+    let reader = BufReader::new(file);
+    let mut words = Vec::new();
+
+    for line in reader.lines() {
+        let line = line?;
+        let line = line.trim();
+
+        // Skip comments and empty lines
+        if line.is_empty() || line.starts_with('#') {
+            continue;
+        }
+
+        // Format: fullform\tbaseform\tpostags
+        let parts: Vec<&str> = line.split('\t').collect();
+        if parts.len() < 3 {
+            continue;
+        }
+
+        let word = parts[0].trim();
+        let base_form = parts[1].trim();
+        let pos_tag = parts[2].trim();
+
+        if word.is_empty() || pos_tag.is_empty() {
+            continue;
+        }
+
+        words.push(PosTaggedWord {
+            word: word.to_string(),
+            base_form: base_form.to_string(),
+            pos_tag: pos_tag.to_string(),
+        });
+    }
+
+    // Sort by word
+    words.sort_by(|a, b| a.word.to_lowercase().cmp(&b.word.to_lowercase()));
+
+    Ok(words)
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Phase 4: Generator - POS-tagged words (added.txt)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+fn generate_pos_tagged_words_file(words: &[PosTaggedWord], lang: &str) -> String {
+    let mut output = String::new();
+    let timestamp = chrono::Utc::now().to_rfc3339();
+
+    output.push_str(&format!(
+        "//! Auto-generated POS-tagged words for {} from LanguageTool\n\
+         //! Synced: {}\n\
+         //! Total entries: {}\n\
+         //! DO NOT EDIT MANUALLY - Run `cargo run --bin sync-lt` to update\n\
+         //!\n\
+         //! Source: LanguageTool added.txt\n\
+         //! License: LGPL 2.1+\n\
+         //!\n\
+         //! Additional words with POS tags not in the main dictionary.\n\n",
+        lang.to_uppercase(),
+        timestamp,
+        words.len()
+    ));
+
+    // Define the entry struct
+    output.push_str("/// A POS-tagged word entry\n");
+    output.push_str("#[derive(Debug, Clone, Copy)]\n");
+    output.push_str("pub struct PosTaggedWord {\n");
+    output.push_str("    /// The word form\n");
+    output.push_str("    pub word: &'static str,\n");
+    output.push_str("    /// The base/lemma form\n");
+    output.push_str("    pub base_form: &'static str,\n");
+    output.push_str("    /// The POS tag\n");
+    output.push_str("    pub pos_tag: &'static str,\n");
+    output.push_str("}\n\n");
+
+    output.push_str(&format!(
+        "/// Added POS-tagged words for {} (sorted by word)\n",
+        lang.to_uppercase()
+    ));
+    output.push_str(&format!("/// Total entries: {}\n", words.len()));
+    output.push_str(&format!(
+        "pub const {}_ADDED_WORDS: &[PosTaggedWord] = &[\n",
+        lang.to_uppercase()
+    ));
+
+    for word in words {
+        output.push_str(&format!(
+            "    PosTaggedWord {{ word: \"{}\", base_form: \"{}\", pos_tag: \"{}\" }},\n",
+            escape_string(&word.word),
+            escape_string(&word.base_form),
+            escape_string(&word.pos_tag)
+        ));
+    }
+
+    output.push_str("];\n\n");
+
+    // Build lookup map
+    output.push_str("use std::collections::HashMap;\n");
+    output.push_str("use std::sync::LazyLock;\n\n");
+
+    output.push_str(&format!(
+        "/// Lookup map for added words by word form\n\
+         pub static {}_ADDED_WORD_LOOKUP: LazyLock<HashMap<String, &'static PosTaggedWord>> = LazyLock::new(|| {{\n\
+         \tlet mut map = HashMap::new();\n\
+         \tfor entry in {}_ADDED_WORDS {{\n\
+         \t\tmap.insert(entry.word.to_lowercase(), entry);\n\
+         \t}}\n\
+         \tmap\n\
+         }});\n\n",
+        lang.to_uppercase(),
+        lang.to_uppercase()
+    ));
+
+    // Generate lookup function
+    output.push_str(&format!(
+        "/// Get POS tag for an added word (case-insensitive)\n\
+         pub fn get_{}_added_word(word: &str) -> Option<&'static PosTaggedWord> {{\n\
+         \t{}_ADDED_WORD_LOOKUP.get(&word.to_lowercase()).copied()\n\
          }}\n",
         lang.to_lowercase(),
         lang.to_uppercase()

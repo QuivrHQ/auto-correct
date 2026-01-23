@@ -136,3 +136,26 @@ pub mod fr_multiwords;
 pub mod fr_hyphenated;
 pub mod fr_spelling;
 pub mod fr_ignore;
+pub mod en_word_definitions;
+pub mod en_prohibit;
+pub mod en_us_gb;
+pub mod en_confusion_l2_de;
+pub mod en_confusion_l2_es;
+pub mod en_confusion_l2_fr;
+pub mod en_confusion_l2_nl;
+pub mod en_added;
+pub mod en_numbers;
+
+pub use en_word_definitions::{WordDefinition, EN_WORD_DEFINITIONS, get_en_word_definition};
+
+pub use en_us_gb::{UsGbMapping, EN_US_GB_MAPPINGS, us_to_gb, gb_to_us, is_us_spelling, is_gb_spelling};
+
+pub use en_confusion_l2_de::{L2ConfusionPair as L2ConfusionPairDe, EN_L2_DE_CONFUSION_PAIRS, get_en_l2_de_confusion};
+
+pub use en_confusion_l2_es::{L2ConfusionPair as L2ConfusionPairEs, EN_L2_ES_CONFUSION_PAIRS, get_en_l2_es_confusion};
+
+pub use en_confusion_l2_fr::{L2ConfusionPair as L2ConfusionPairFr, EN_L2_FR_CONFUSION_PAIRS, get_en_l2_fr_confusion};
+
+pub use en_confusion_l2_nl::{L2ConfusionPair as L2ConfusionPairNl, EN_L2_NL_CONFUSION_PAIRS, get_en_l2_nl_confusion};
+
+pub use en_added::{PosTaggedWord, EN_ADDED_WORDS, get_en_added_word};

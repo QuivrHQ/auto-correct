@@ -1,5 +1,5 @@
 //! Auto-generated ignore word list for EN from LanguageTool
-//! Synced: 2026-01-23T13:17:50.480553171+00:00
+//! Synced: 2026-01-23T13:30:56.965402918+00:00
 //! Total words: 11029
 //! DO NOT EDIT MANUALLY - Run `cargo run --bin sync-lt` to update
 //!

@@ -1,5 +1,5 @@
 //! Auto-generated determiner rules for EN from LanguageTool
-//! Synced: 2026-01-23T13:17:50.278235588+00:00
+//! Synced: 2026-01-23T13:30:56.761271166+00:00
 //! Total words: 4782 (a: 939, an: 3843)
 //! DO NOT EDIT MANUALLY - Run `cargo run --bin sync-lt` to update
 //!

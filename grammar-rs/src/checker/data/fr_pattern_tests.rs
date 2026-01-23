@@ -1,5 +1,5 @@
 //! Auto-generated test examples for FR pattern rules from LanguageTool
-//! Synced: 2026-01-23T13:17:51.676054464+00:00
+//! Synced: 2026-01-23T13:30:58.149985934+00:00
 //! Total examples: 244 (172 incorrect, 72 correct)
 //! DO NOT EDIT MANUALLY - Run `cargo run --bin sync-lt` to update
 //!

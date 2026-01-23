@@ -1,5 +1,5 @@
 //! Auto-generated contraction rules for EN from LanguageTool
-//! Synced: 2026-01-23T13:17:50.271697507+00:00
+//! Synced: 2026-01-23T13:30:56.754701323+00:00
 //! Total rules: 179
 //! DO NOT EDIT MANUALLY - Run `cargo run --bin sync-lt` to update
 //!

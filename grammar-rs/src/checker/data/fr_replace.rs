@@ -1,5 +1,5 @@
 //! Auto-generated replace rules for FR from LanguageTool
-//! Synced: 2026-01-23T13:17:51.678258304+00:00
+//! Synced: 2026-01-23T13:30:58.152202139+00:00
 //! Total rules: 102
 //! DO NOT EDIT MANUALLY - Run `cargo run --bin sync-lt` to update
 //!

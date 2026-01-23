@@ -1,5 +1,5 @@
 //! Auto-generated replace rules for EN from LanguageTool
-//! Synced: 2026-01-23T13:17:50.214765725+00:00
+//! Synced: 2026-01-23T13:30:56.697954121+00:00
 //! Total rules: 201
 //! DO NOT EDIT MANUALLY - Run `cargo run --bin sync-lt` to update
 //!

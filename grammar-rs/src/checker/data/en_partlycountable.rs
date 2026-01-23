@@ -1,5 +1,5 @@
 //! Auto-generated partlycountable word list for EN from LanguageTool
-//! Synced: 2026-01-23T13:17:50.361020765+00:00
+//! Synced: 2026-01-23T13:30:56.840479047+00:00
 //! Total words: 2917
 //! DO NOT EDIT MANUALLY - Run `cargo run --bin sync-lt` to update
 //!

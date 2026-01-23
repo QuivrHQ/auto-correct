@@ -1,5 +1,5 @@
 //! Auto-generated style rules for FR from LanguageTool
-//! Synced: 2026-01-23T13:17:51.678632751+00:00
+//! Synced: 2026-01-23T13:30:58.152565536+00:00
 //! Total rules: 51 (0 wordiness, 51 redundancy)
 //! DO NOT EDIT MANUALLY - Run `cargo run --bin sync-lt` to update
 //!
