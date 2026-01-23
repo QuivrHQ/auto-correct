@@ -19,6 +19,7 @@ enum DictionaryBackend {
 pub struct SpellChecker {
     backend: DictionaryBackend,
     max_edit_distance: usize,
+    skip_words: HashSet<String>,
 }
 
 impl SpellChecker {
@@ -27,6 +28,7 @@ impl SpellChecker {
         Self {
             backend: DictionaryBackend::HashSet(HashSet::new()),
             max_edit_distance: 2,
+            skip_words: HashSet::new(),
         }
     }
 
@@ -35,6 +37,7 @@ impl SpellChecker {
         Self {
             backend: DictionaryBackend::Fst(Arc::new(dict)),
             max_edit_distance: 2,
+            skip_words: HashSet::new(),
         }
     }
 
@@ -43,7 +46,25 @@ impl SpellChecker {
         Self {
             backend: DictionaryBackend::Fst(dict),
             max_edit_distance: 2,
+            skip_words: HashSet::new(),
         }
+    }
+
+    /// Add words to skip during spell checking (proper nouns, acronyms, etc.)
+    pub fn with_skip_words<I, S>(mut self, words: I) -> Self
+    where
+        I: IntoIterator<Item = S>,
+        S: AsRef<str>,
+    {
+        for word in words {
+            self.skip_words.insert(word.as_ref().to_lowercase());
+        }
+        self
+    }
+
+    /// Check if a word should be skipped
+    fn should_skip(&self, word: &str) -> bool {
+        self.skip_words.contains(&word.to_lowercase())
     }
 
     /// Charge un dictionnaire depuis une liste de mots (HashSet backend)
@@ -131,11 +152,16 @@ impl Checker for SpellChecker {
                 continue;
             }
 
+            // Skip words in the skip list (acronyms, proper nouns, etc.)
+            if self.should_skip(token.text) {
+                continue;
+            }
+
             if !self.is_valid(token.text) {
                 let suggestions = self.suggest(token.text, 3);
                 result.matches.push(Match {
                     span: token.span.clone(),
-                    message: format!("Mot inconnu: '{}'", token.text),
+                    message: format!("Possible spelling mistake: '{}'", token.text),
                     rule_id: "SPELL".to_string(),
                     suggestions,
                     severity: Severity::Error,
@@ -275,5 +301,55 @@ mod tests {
         assert_eq!(levenshtein("hello", "hello"), 0);
         assert_eq!(levenshtein("hello", "helo"), 1);
         assert_eq!(levenshtein("hello", "world"), 4);
+    }
+
+    #[test]
+    fn test_skip_words() {
+        let checker = SpellChecker::new()
+            .with_words(["hello", "world", "test"])
+            .with_skip_words(["IBM", "JSON", "API"]);
+
+        let tokenizer = SimpleTokenizer::new();
+        let analyzer = PassthroughAnalyzer::new();
+
+        // Test that skip words are not flagged
+        let tokens = tokenizer.tokenize("IBM uses JSON API");
+        let analyzed = analyzer.analyze(tokens);
+        let result = checker.check("IBM uses JSON API", &analyzed);
+
+        // "uses" is not in dictionary but skip words should not be flagged
+        // Only "uses" should be flagged (not IBM, JSON, API)
+        for m in &result.matches {
+            assert!(!["ibm", "json", "api"].contains(&m.suggestions.first().map(|s| s.as_str()).unwrap_or("")));
+        }
+    }
+
+    #[test]
+    fn test_skip_words_case_insensitive() {
+        let checker = SpellChecker::new()
+            .with_words(["hello", "world"])
+            .with_skip_words(["NASA"]);
+
+        let tokenizer = SimpleTokenizer::new();
+        let analyzer = PassthroughAnalyzer::new();
+
+        // Test case insensitivity: "nasa" should also be skipped
+        let tokens = tokenizer.tokenize("nasa hello");
+        let analyzed = analyzer.analyze(tokens);
+        let result = checker.check("nasa hello", &analyzed);
+
+        // "nasa" should be skipped, "hello" is valid
+        assert_eq!(result.matches.len(), 0);
+    }
+
+    #[test]
+    fn test_should_skip() {
+        let checker = SpellChecker::new()
+            .with_skip_words(["IBM", "JSON"]);
+
+        assert!(checker.should_skip("IBM"));
+        assert!(checker.should_skip("ibm"));  // case insensitive
+        assert!(checker.should_skip("JSON"));
+        assert!(!checker.should_skip("hello"));
     }
 }

@@ -92,6 +92,14 @@ pub use data::{
 pub use data::{
     PosTaggedWord, EN_ADDED_WORDS, get_en_added_word,
 };
+// Spelling skip lists
+pub use data::{
+    EN_IGNORE, is_en_ignore,
+    EN_PROPER_NOUNS, is_en_proper_noun,
+    EN_SPELLING, is_en_spelling,
+    FR_IGNORE, is_fr_ignore,
+    FR_SPELLING, is_fr_spelling,
+};
 pub use pattern_rules::{AhoPatternRuleChecker, PatternRule, PatternRuleChecker};
 pub use replace_rules::ReplaceRuleChecker;
 pub use style_checker::StyleChecker;

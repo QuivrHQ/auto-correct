@@ -1,10 +1,10 @@
 # Grammar-RS: Features Manquantes
 
-> **État actuel:** ~85% de parité fonctionnelle avec LanguageTool
+> **État actuel:** ~92% de parité fonctionnelle avec LanguageTool
 >
 > **Performance:** grammar-rs ~9ms vs LanguageTool ~1.4s (~150x plus rapide)
 >
-> **Dernière mise à jour:** Pipeline FR complété, ProhibitChecker ajouté
+> **Dernière mise à jour:** SpellChecker intégré (370K mots EN, 34K mots FR)
 
 ---
 
@@ -82,22 +82,24 @@
 
 ---
 
-## 5. Spelling Suggestions - 🔶 Données non intégrées
+## 5. Spelling Infrastructure - ✅ COMPLÉTÉ
 
-**Description:** Suggestions de corrections orthographiques.
+**Description:** Spell-checking complet avec suggestions.
 
-**État:** Données disponibles, non intégrées.
+**État:** Intégré aux pipelines EN et FR.
 
-| Fichier | Entrées | Usage |
-|---------|---------|-------|
-| `en_spelling.rs` | 468 | ❌ Non intégré |
-| `fr_spelling.rs` | 34,099 | ❌ Non intégré |
-| `en_ignore.rs` | 11,029 | ❌ Skip list |
-| `fr_ignore.rs` | 1,506 | ❌ Skip list |
+| Langue | Dictionnaire | Skip List | État |
+|--------|--------------|-----------|------|
+| EN | FST 370K mots | 16,566 mots (EN_IGNORE + EN_PROPER_NOUNS) | ✅ Intégré |
+| FR | 34K mots (FR_SPELLING) | 1,506 mots (FR_IGNORE) | ✅ Intégré |
 
-**Action requise:** Créer SpellingSuggestionChecker utilisant ces données.
+**Fichiers modifiés:**
+- `src/checker/spell.rs` - Ajout support skip_words
+- `src/bin/api/state.rs` - Intégration aux pipelines
 
-**Priorité:** MOYENNE
+**Note:** Le dictionnaire FR est limité (34K mots vs 370K EN) mais fonctionnel.
+
+**Priorité:** ~~MOYENNE~~ TERMINÉ
 
 ---
 
@@ -152,11 +154,14 @@
 
 | Catégorie | Features | Priorité | État |
 |-----------|----------|----------|------|
-| Complété | FR pipeline, ProhibitChecker | - | ✅ |
-| Non implémenté | Disambiguation, N-gram | BASSE | Complexe |
-| Données auxiliaires | L2 confusion, Spelling, Proper nouns, Multiwords, Numbers | BASSE | POS/contexte requis |
+| ✅ Complété | FR pipeline, ProhibitChecker, L2ConfusionChecker FR, SpellChecker | - | Intégré |
+| ❌ Complexe | Disambiguation/POS avancé, N-gram models | BASSE | Nécessite ML/données volumineuses |
+| ⏸️ Différé | Multiwords, Numbers | BASSE | Nécessite POS avancé |
 
-**Note:** Les items restants nécessitent soit du POS tagging avancé (multiwords, numbers), soit des modèles n-gram (L2 confusion), soit un spell checker complet (spelling, proper nouns).
+**Note:**
+- **Disambiguation:** Nécessite ~2,000 règles + modèle HMM/Perceptron (~10-50MB)
+- **N-gram:** Nécessite modèles statistiques (~1GB par langue)
+- **SpellChecker:** ✅ Intégré avec FST 370K mots EN + 34K mots FR
 
 ---
 

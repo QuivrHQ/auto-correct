@@ -7,15 +7,20 @@ use grammar_rs::checker::{
     StyleChecker, CoherencyChecker, DiacriticsChecker,
     ContractionChecker, ContextChecker,
     PosPatternChecker, UncountableNounChecker, CompoundWordChecker,
-    ProhibitChecker,
+    ProhibitChecker, SpellChecker,
     EN_PATTERN_RULES, FR_PATTERN_RULES,
     EN_REPLACE_RULES, FR_REPLACE_RULES,
     EN_ANTIPATTERNS, FR_ANTIPATTERNS,
     EN_POS_PATTERN_RULES, FR_POS_PATTERN_RULES,
     EN_ADDED_WORDS,
+    // Spelling skip lists
+    EN_IGNORE, EN_PROPER_NOUNS,
+    FR_IGNORE, FR_SPELLING,
 };
+use grammar_rs::dictionary::FstDictionary;
 use grammar_rs::core::PosTag;
 use std::sync::Arc;
+use std::path::Path;
 
 /// Application state shared across all requests
 pub struct AppState {
@@ -70,12 +75,50 @@ impl AppState {
         }
     }
 
+    /// Create an English spell checker with FST dictionary (370K words)
+    fn create_en_spell_checker() -> Option<SpellChecker> {
+        let dict_path = Path::new("data/dictionaries/en_US.fst");
+        if !dict_path.exists() {
+            tracing::warn!("EN dictionary not found at {:?}, spell checking disabled", dict_path);
+            return None;
+        }
+
+        match FstDictionary::from_fst(dict_path) {
+            Ok(dict) => {
+                let word_count = dict.len();
+                let checker = SpellChecker::with_fst_dictionary(dict)
+                    .with_skip_words(EN_IGNORE.iter().copied())
+                    .with_skip_words(EN_PROPER_NOUNS.iter().copied());
+                tracing::info!("EN spell checker enabled ({} dictionary words, {} skip words)",
+                              word_count, EN_IGNORE.len() + EN_PROPER_NOUNS.len());
+                Some(checker)
+            }
+            Err(e) => {
+                tracing::warn!("Failed to load EN dictionary: {}", e);
+                None
+            }
+        }
+    }
+
+    /// Create a French spell checker using FR_SPELLING as dictionary
+    fn create_fr_spell_checker() -> Option<SpellChecker> {
+        // FR doesn't have a full FST dictionary, use FR_SPELLING (34K words) as a simple dictionary
+        // This is limited but provides basic spell checking
+        let checker = SpellChecker::new()
+            .with_words(FR_SPELLING.iter().copied())
+            .with_skip_words(FR_IGNORE.iter().copied());
+
+        tracing::info!("FR spell checker enabled ({} dictionary words, {} skip words)",
+                      FR_SPELLING.len(), FR_IGNORE.len());
+        Some(checker)
+    }
+
     /// Create the English pipeline with all checkers
     fn create_en_pipeline() -> Pipeline {
         // Use POS tagger instead of passthrough for better rule matching
         let pos_tagger = Self::create_en_pos_tagger();
 
-        Pipeline::new(
+        let mut pipeline = Pipeline::new(
             SimpleTokenizer::new(),
             pos_tagger,
         )
@@ -106,14 +149,20 @@ impl AppState {
         // Compound word errors (air plane → airplane, well being → well-being)
         .with_checker(CompoundWordChecker::new())
         // Prohibited words (common misspellings that are always wrong)
-        .with_checker(ProhibitChecker::new())
+        .with_checker(ProhibitChecker::new());
+
+        // Spell checker (370K word FST dictionary + skip lists)
+        if let Some(spell_checker) = Self::create_en_spell_checker() {
+            pipeline = pipeline.with_checker(spell_checker);
+        }
+
         // Default filters (URLs, code, quotes, etc.)
-        .with_default_filters()
+        pipeline.with_default_filters()
     }
 
     /// Create the French pipeline with all checkers
     fn create_fr_pipeline() -> Pipeline {
-        Pipeline::new(
+        let mut pipeline = Pipeline::new(
             SimpleTokenizer::new(),
             PassthroughAnalyzer::new(),
         )
@@ -132,9 +181,15 @@ impl AppState {
         // Style checking (wordiness, redundancy) - 51 FR rules
         .with_checker(StyleChecker::french())
         // Compound word errors (aller retour → aller-retour)
-        .with_checker(CompoundWordChecker::french())
+        .with_checker(CompoundWordChecker::french());
+
+        // Spell checker (34K word dictionary from FR_SPELLING + skip list)
+        if let Some(spell_checker) = Self::create_fr_spell_checker() {
+            pipeline = pipeline.with_checker(spell_checker);
+        }
+
         // Default filters
-        .with_default_filters()
+        pipeline.with_default_filters()
     }
 }
 

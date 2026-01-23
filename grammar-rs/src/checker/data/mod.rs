@@ -161,6 +161,16 @@ pub use en_confusion_l2_fr::{L2ConfusionPair as L2ConfusionPairFr, EN_L2_FR_CONF
 pub use en_confusion_l2_nl::{L2ConfusionPair as L2ConfusionPairNl, EN_L2_NL_CONFUSION_PAIRS, get_en_l2_nl_confusion};
 
 pub use en_added::{PosTaggedWord, EN_ADDED_WORDS, get_en_added_word};
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Spelling skip lists (for spell checker)
+// ═══════════════════════════════════════════════════════════════════════════════
+pub use en_ignore::{EN_IGNORE, is_en_ignore};
+pub use en_proper_nouns::{EN_PROPER_NOUNS, is_en_proper_noun};
+pub use en_spelling::{EN_SPELLING, is_en_spelling};
+pub use fr_ignore::{FR_IGNORE, is_fr_ignore};
+pub use fr_spelling::{FR_SPELLING, is_fr_spelling};
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // Antipatterns (exceptions to pattern rules)
 // ═══════════════════════════════════════════════════════════════════════════════

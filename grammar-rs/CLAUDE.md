@@ -118,11 +118,23 @@ cargo test
 - "fabric" → "factory" (FR "fabrique" = usine)
 - "pretend" → "claim" (FR "prétendre" = prétendre)
 
+## ✅ COMPLETED - Spell Checker
+**Description:** Vérification orthographique avec dictionnaire FST et suggestions Levenshtein.
+**Stats:**
+- EN: 370,105 mots (FST) + 16,566 skip words (EN_IGNORE + EN_PROPER_NOUNS)
+- FR: 34,099 mots (HashSet) + 1,506 skip words (FR_IGNORE)
+**Fichiers:** `spell.rs`, `en_US.fst`, `en_ignore.rs`, `en_proper_nouns.rs`, `fr_spelling.rs`, `fr_ignore.rs`
+**Intégration:** `SpellChecker` dans les pipelines API EN et FR
+**Features:**
+- Dictionnaire FST pour EN (1.7MB, 370K mots)
+- Skip lists pour éviter faux positifs (acronymes, noms propres)
+- Suggestions via distance de Levenshtein
+
 ---
 
 # Features Différées
 
-## ⏸️ DEFERRED - Hunspell / Morphologie
-**Description:** Spell-checking morphologique avec lemmatisation.
-**Raison:** Nécessite dépendances système (libhunspell). LanguageTool utilise Morfologik (FST) pour l'anglais.
-**Alternative:** SpellChecker existant avec FST/HashSet + edit distance. Données extraites disponibles (EN_COMMON_WORDS, EN_IGNORE, EN_SPELLING).
+## ⏸️ DEFERRED - Hunspell / Morphologie Avancée
+**Description:** Spell-checking morphologique avec lemmatisation et affixes.
+**Raison:** LanguageTool utilise Morfologik (binaire) non disponible. Notre SpellChecker utilise FST + Levenshtein.
+**Alternative actuelle:** SpellChecker avec dictionnaire FST 370K mots (EN) fonctionne bien pour la plupart des cas.
