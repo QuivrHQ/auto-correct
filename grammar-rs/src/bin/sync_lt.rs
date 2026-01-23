@@ -131,11 +131,43 @@ struct SynonymRule {
     synonyms: Vec<String>,
 }
 
+#[derive(Debug, Clone)]
+struct PosPatternRule {
+    id: String,
+    pattern: Vec<PosPatternElement>,
+    message: String,
+    suggestions: Vec<String>,
+}
+
+#[derive(Debug, Clone)]
+struct PosPatternElement {
+    text: Option<String>,
+    pos_pattern: Option<String>,
+    negation: bool,
+}
+
+#[derive(Debug, Clone)]
+struct CompoundRule {
+    word: String,
+    allow_no_hyphen: bool,   // + at end
+    hyphen_only: bool,       // * at end
+    lowercase_joined: bool,  // ? at end
+    allow_both: bool,        // $ at end
+}
+
+#[derive(Debug, Clone)]
+struct MultiwordEntry {
+    phrase: String,
+    pos_tag: String,
+}
+
 #[derive(Debug, Default)]
 struct SyncStats {
     grammar_rules: usize,
     simple_patterns: usize,
+    pos_pattern_rules: usize,
     confusion_pairs: usize,
+    confusion_extended_pairs: usize,
     replace_rules: usize,
     test_examples: usize,
     wordiness_rules: usize,
@@ -148,6 +180,14 @@ struct SyncStats {
     det_an_words: usize,
     context_rules: usize,
     synonym_rules: usize,
+    uncountable_words: usize,
+    partlycountable_words: usize,
+    specific_case_words: usize,
+    compound_rules: usize,
+    multiword_entries: usize,
+    hyphenated_words: usize,
+    spelling_words: usize,
+    ignore_words: usize,
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -174,7 +214,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let stats = sync_language(&lt_path, lang)?;
         total_stats.grammar_rules += stats.grammar_rules;
         total_stats.simple_patterns += stats.simple_patterns;
+        total_stats.pos_pattern_rules += stats.pos_pattern_rules;
         total_stats.confusion_pairs += stats.confusion_pairs;
+        total_stats.confusion_extended_pairs += stats.confusion_extended_pairs;
         total_stats.replace_rules += stats.replace_rules;
         total_stats.test_examples += stats.test_examples;
         total_stats.wordiness_rules += stats.wordiness_rules;
@@ -187,13 +229,23 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         total_stats.det_an_words += stats.det_an_words;
         total_stats.context_rules += stats.context_rules;
         total_stats.synonym_rules += stats.synonym_rules;
+        total_stats.uncountable_words += stats.uncountable_words;
+        total_stats.partlycountable_words += stats.partlycountable_words;
+        total_stats.specific_case_words += stats.specific_case_words;
+        total_stats.compound_rules += stats.compound_rules;
+        total_stats.multiword_entries += stats.multiword_entries;
+        total_stats.hyphenated_words += stats.hyphenated_words;
+        total_stats.spelling_words += stats.spelling_words;
+        total_stats.ignore_words += stats.ignore_words;
     }
 
-    println!("\n{}", "=".repeat(60));
+    println!("\n{}", "=".repeat(70));
     println!("Synchronisation complete!");
     println!(
-        "  Patterns: {} | Confusion: {} | Replace: {}",
-        total_stats.simple_patterns, total_stats.confusion_pairs, total_stats.replace_rules
+        "  Patterns: {} | POS patterns: {} | Confusion: {} (+{} extended) | Replace: {}",
+        total_stats.simple_patterns, total_stats.pos_pattern_rules,
+        total_stats.confusion_pairs, total_stats.confusion_extended_pairs,
+        total_stats.replace_rules
     );
     println!(
         "  Wordiness: {} | Redundancy: {} | Coherency: {}",
@@ -216,7 +268,23 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         "  Context rules: {} | Synonyms: {}",
         total_stats.context_rules, total_stats.synonym_rules
     );
-    println!("{}", "=".repeat(60));
+    println!(
+        "  Uncountable: {} | Partly countable: {} | Proper nouns: {}",
+        total_stats.uncountable_words,
+        total_stats.partlycountable_words,
+        total_stats.specific_case_words
+    );
+    println!(
+        "  Compounds: {} | Multiwords: {} | Hyphenated: {}",
+        total_stats.compound_rules,
+        total_stats.multiword_entries,
+        total_stats.hyphenated_words
+    );
+    println!(
+        "  Spelling: {} | Ignore: {}",
+        total_stats.spelling_words, total_stats.ignore_words
+    );
+    println!("{}", "=".repeat(70));
 
     Ok(())
 }
@@ -335,16 +403,20 @@ fn sync_language(lt_path: &Path, lang: &str) -> Result<SyncStats, Box<dyn std::e
 
     if !all_rules.is_empty() {
         stats.grammar_rules = grammar_count + style_count;
-        let simple_rules = filter_simple_rules(all_rules);
+        let simple_rules = filter_simple_rules(all_rules.clone());
         stats.simple_patterns = simple_rules.len();
+
+        // Extract POS pattern rules
+        let pos_rules = filter_pos_pattern_rules(&all_rules, lang);
+        stats.pos_pattern_rules = pos_rules.len();
 
         // Count and generate test examples
         let test_examples = extract_test_examples(&simple_rules);
         stats.test_examples = test_examples.len();
 
         println!(
-            "   grammar.xml: {} rules, style.xml: {} rules -> {} simple patterns, {} test examples",
-            grammar_count, style_count, stats.simple_patterns, stats.test_examples
+            "   grammar.xml: {} rules, style.xml: {} rules -> {} simple patterns, {} POS patterns, {} test examples",
+            grammar_count, style_count, stats.simple_patterns, stats.pos_pattern_rules, stats.test_examples
         );
 
         if !simple_rules.is_empty() {
@@ -358,6 +430,13 @@ fn sync_language(lt_path: &Path, lang: &str) -> Result<SyncStats, Box<dyn std::e
                 let test_output_path = output_dir.join(format!("{}_pattern_tests.rs", lang));
                 fs::write(&test_output_path, test_code)?;
             }
+        }
+
+        // Generate POS pattern rules file
+        if !pos_rules.is_empty() {
+            let code = generate_pos_patterns_file(&pos_rules, lang);
+            let output_path = output_dir.join(format!("{}_pos_patterns.rs", lang));
+            fs::write(&output_path, code)?;
         }
     }
 
@@ -448,23 +527,48 @@ fn sync_language(lt_path: &Path, lang: &str) -> Result<SyncStats, Box<dyn std::e
         fs::write(&output_path, code)?;
     }
 
-    // 4. Sync wordiness.txt + redundancies.txt -> style
+    // 4. Sync wordiness.txt + redundancies.txt + custom redundancies -> style
     let mut style_rules = Vec::new();
+    let mut lt_wordiness_count = 0;
+    let mut lt_redundancy_count = 0;
+    let mut custom_redundancy_count = 0;
 
     let wordiness_path = rules_path.join("wordiness.txt");
     if wordiness_path.exists() {
         let rules = parse_style_file(&wordiness_path, StyleCategory::Wordiness)?;
-        stats.wordiness_rules = rules.len();
-        println!("   wordiness.txt: {} rules", stats.wordiness_rules);
+        lt_wordiness_count = rules.len();
         style_rules.extend(rules);
     }
 
     let redundancies_path = rules_path.join("redundancies.txt");
     if redundancies_path.exists() {
         let rules = parse_style_file(&redundancies_path, StyleCategory::Redundancy)?;
-        stats.redundancy_rules = rules.len();
-        println!("   redundancies.txt: {} rules", stats.redundancy_rules);
+        lt_redundancy_count = rules.len();
         style_rules.extend(rules);
+    }
+
+    // Load custom redundancies (pleonasms) if they exist
+    let custom_redundancies_path = output_dir.join(format!("{}_custom_redundancies.txt", lang));
+    if custom_redundancies_path.exists() {
+        let rules = parse_custom_redundancies(&custom_redundancies_path)?;
+        custom_redundancy_count = rules.len();
+        style_rules.extend(rules);
+    }
+
+    stats.wordiness_rules = lt_wordiness_count;
+    stats.redundancy_rules = lt_redundancy_count + custom_redundancy_count;
+
+    if lt_wordiness_count > 0 || lt_redundancy_count > 0 || custom_redundancy_count > 0 {
+        if custom_redundancy_count > 0 {
+            println!(
+                "   wordiness: {} | redundancy: {} + custom: {} = {} style rules",
+                lt_wordiness_count, lt_redundancy_count, custom_redundancy_count,
+                lt_wordiness_count + lt_redundancy_count + custom_redundancy_count
+            );
+        } else if lt_wordiness_count > 0 || lt_redundancy_count > 0 {
+            println!("   wordiness.txt: {} rules", lt_wordiness_count);
+            println!("   redundancies.txt: {} rules", lt_redundancy_count);
+        }
     }
 
     if !style_rules.is_empty() {
@@ -588,6 +692,133 @@ fn sync_language(lt_path: &Path, lang: &str) -> Result<SyncStats, Box<dyn std::e
         if !rules.is_empty() {
             let code = generate_synonyms_file(&rules, lang);
             let output_path = output_dir.join(format!("{}_synonyms.rs", lang));
+            fs::write(&output_path, code)?;
+        }
+    }
+
+    // 12. Sync confusion_sets_extended.txt -> extended confusion pairs (EN only)
+    let confusion_extended_path = resource_path.join("confusion_sets_extended.txt");
+    if confusion_extended_path.exists() {
+        let pairs = parse_confusion_extended(&confusion_extended_path)?;
+        stats.confusion_extended_pairs = pairs.len();
+        println!("   confusion_sets_extended.txt: {} pairs", stats.confusion_extended_pairs);
+
+        if !pairs.is_empty() {
+            let code = generate_confusion_extended_file(&pairs, lang);
+            let output_path = output_dir.join(format!("{}_confusion_extended.rs", lang));
+            fs::write(&output_path, code)?;
+        }
+    }
+
+    // 13. Sync uncountable.txt -> uncountable nouns (EN only)
+    let uncountable_path = resource_path.join("uncountable.txt");
+    if uncountable_path.exists() {
+        let words = parse_word_list(&uncountable_path)?;
+        stats.uncountable_words = words.len();
+        println!("   uncountable.txt: {} words", stats.uncountable_words);
+
+        if !words.is_empty() {
+            let code = generate_word_list_file(&words, lang, "uncountable", "Uncountable nouns (cannot be pluralized)");
+            let output_path = output_dir.join(format!("{}_uncountable.rs", lang));
+            fs::write(&output_path, code)?;
+        }
+    }
+
+    // 14. Sync partlycountable.txt -> partly countable nouns (EN only)
+    let partlycountable_path = resource_path.join("partlycountable.txt");
+    if partlycountable_path.exists() {
+        let words = parse_word_list(&partlycountable_path)?;
+        stats.partlycountable_words = words.len();
+        println!("   partlycountable.txt: {} words", stats.partlycountable_words);
+
+        if !words.is_empty() {
+            let code = generate_word_list_file(&words, lang, "partlycountable", "Partly countable nouns (can be both countable and uncountable)");
+            let output_path = output_dir.join(format!("{}_partlycountable.rs", lang));
+            fs::write(&output_path, code)?;
+        }
+    }
+
+    // 15. Sync specific_case.txt -> proper nouns with specific casing (EN mainly)
+    let specific_case_path = resource_path.join("specific_case.txt");
+    if specific_case_path.exists() {
+        let words = parse_specific_case(&specific_case_path)?;
+        stats.specific_case_words = words.len();
+        println!("   specific_case.txt: {} proper nouns", stats.specific_case_words);
+
+        if !words.is_empty() {
+            let code = generate_specific_case_file(&words, lang);
+            let output_path = output_dir.join(format!("{}_proper_nouns.rs", lang));
+            fs::write(&output_path, code)?;
+        }
+    }
+
+    // 16. Sync compounds.txt -> compound word rules (EN + FR)
+    let compounds_path = resource_path.join("compounds.txt");
+    if compounds_path.exists() {
+        let rules = parse_compounds_txt(&compounds_path)?;
+        stats.compound_rules = rules.len();
+        println!("   compounds.txt: {} rules", stats.compound_rules);
+
+        if !rules.is_empty() {
+            let code = generate_compounds_file(&rules, lang);
+            let output_path = output_dir.join(format!("{}_compounds.rs", lang));
+            fs::write(&output_path, code)?;
+        }
+    }
+
+    // 17. Sync multiwords.txt -> multiword expressions (EN + FR)
+    let multiwords_path = resource_path.join("multiwords.txt");
+    if multiwords_path.exists() {
+        let entries = parse_multiwords_txt(&multiwords_path)?;
+        stats.multiword_entries = entries.len();
+        println!("   multiwords.txt: {} entries", stats.multiword_entries);
+
+        if !entries.is_empty() {
+            let code = generate_multiwords_file(&entries, lang);
+            let output_path = output_dir.join(format!("{}_multiwords.rs", lang));
+            fs::write(&output_path, code)?;
+        }
+    }
+
+    // 18. Sync hyphenated_words.txt -> hyphenated words (FR mainly)
+    let hyphenated_path = resource_path.join("hyphenated_words.txt");
+    if hyphenated_path.exists() {
+        let words = parse_word_list(&hyphenated_path)?;
+        stats.hyphenated_words = words.len();
+        println!("   hyphenated_words.txt: {} words", stats.hyphenated_words);
+
+        if !words.is_empty() {
+            let code = generate_word_list_file(&words, lang, "hyphenated", "Hyphenated words (correct hyphenation)");
+            let output_path = output_dir.join(format!("{}_hyphenated.rs", lang));
+            fs::write(&output_path, code)?;
+        }
+    }
+
+    // 19. Sync spelling.txt + ignore.txt -> spell check lists
+    let hunspell_path = resource_path.join("hunspell");
+    let spelling_path = hunspell_path.join("spelling.txt");
+    let ignore_path = hunspell_path.join("ignore.txt");
+
+    if spelling_path.exists() {
+        let words = parse_word_list(&spelling_path)?;
+        stats.spelling_words = words.len();
+        println!("   spelling.txt: {} words", stats.spelling_words);
+
+        if !words.is_empty() {
+            let code = generate_word_list_file(&words, lang, "spelling", "Spelling additions (valid words to add to spell checker)");
+            let output_path = output_dir.join(format!("{}_spelling.rs", lang));
+            fs::write(&output_path, code)?;
+        }
+    }
+
+    if ignore_path.exists() {
+        let words = parse_word_list(&ignore_path)?;
+        stats.ignore_words = words.len();
+        println!("   ignore.txt: {} words", stats.ignore_words);
+
+        if !words.is_empty() {
+            let code = generate_word_list_file(&words, lang, "ignore", "Ignored words (should not trigger spell check errors)");
+            let output_path = output_dir.join(format!("{}_ignore.rs", lang));
             fs::write(&output_path, code)?;
         }
     }
@@ -851,6 +1082,265 @@ fn is_simple_pattern(tokens: &[PatternToken]) -> bool {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
+// Filter: POS pattern rules
+// ═══════════════════════════════════════════════════════════════════════════════
+
+fn filter_pos_pattern_rules(rules: &[XmlRule], lang: &str) -> Vec<PosPatternRule> {
+    rules
+        .iter()
+        .filter_map(|r| {
+            // Must have a valid ID, message, and suggestion
+            if r.id.is_empty() || r.message.is_empty() || r.suggestions.is_empty() {
+                return None;
+            }
+
+            // Must have at least one token with postag
+            let has_postag = r.pattern.iter().any(|t| t.postag.is_some());
+            if !has_postag {
+                return None;
+            }
+
+            // Check if the pattern is compatible with our POS system
+            if !is_pos_pattern_compatible(&r.pattern, lang) {
+                return None;
+            }
+
+            // Check if suggestions are simple
+            if !is_simple_suggestion(&r.suggestions) {
+                return None;
+            }
+
+            // Check if message is simple
+            if !is_simple_message(&r.message) {
+                return None;
+            }
+
+            // Convert to PosPatternRule
+            let pattern: Vec<PosPatternElement> = r
+                .pattern
+                .iter()
+                .filter_map(|t| {
+                    // Skip tokens with unsupported features
+                    if t.min != 1 || t.max != 1 || t.regexp.is_some() {
+                        // Allow min=0 tokens by skipping them (optional tokens)
+                        if t.min == 0 {
+                            return None;
+                        }
+                        return None;
+                    }
+
+                    // Get text (case-insensitive) if present
+                    let text = t.text.as_ref().map(|s| s.to_lowercase());
+
+                    // Skip tokens with regex in text
+                    if let Some(ref txt) = text {
+                        if txt.contains('|')
+                            || txt.contains('*')
+                            || txt.contains('+')
+                            || txt.contains('?')
+                            || txt.contains('[')
+                            || txt.contains('(')
+                        {
+                            return None;
+                        }
+                    }
+
+                    Some(PosPatternElement {
+                        text,
+                        pos_pattern: t.postag.clone(),
+                        negation: t.negation,
+                    })
+                })
+                .collect();
+
+            // Need at least 2 elements after filtering
+            if pattern.len() < 2 {
+                return None;
+            }
+
+            // Need at least one token with POS pattern
+            if !pattern.iter().any(|e| e.pos_pattern.is_some()) {
+                return None;
+            }
+
+            Some(PosPatternRule {
+                id: r.id.clone(),
+                pattern,
+                message: r.message.clone(),
+                suggestions: r.suggestions.clone(),
+            })
+        })
+        .collect()
+}
+
+fn is_pos_pattern_compatible(tokens: &[PatternToken], lang: &str) -> bool {
+    // Must have 2-8 tokens
+    if tokens.len() < 2 || tokens.len() > 8 {
+        return false;
+    }
+
+    // All tokens must be compatible
+    tokens.iter().all(|t| is_token_pos_compatible(t, lang))
+}
+
+fn is_token_pos_compatible(token: &PatternToken, lang: &str) -> bool {
+    // Skip optional tokens (they'll be filtered out)
+    if token.min == 0 {
+        return true;
+    }
+
+    // Must have min=1, max=1 (no repetition)
+    if token.min != 1 || token.max != 1 {
+        return false;
+    }
+
+    // No inflected forms (requires morphological analysis)
+    if token.inflected {
+        return false;
+    }
+
+    // Check postag if present
+    if let Some(ref postag) = token.postag {
+        // Check if we support this postag
+        if token.postag_regexp {
+            // Regex postag - check if it's a supported pattern
+            if !is_supported_postag_pattern(postag, lang) {
+                return false;
+            }
+        } else {
+            // Exact postag - check if we have a mapping
+            if !is_supported_postag(postag, lang) {
+                return false;
+            }
+        }
+    }
+
+    // Check text if present
+    if let Some(ref text) = token.text {
+        // No regex in text
+        if token.regexp.is_some() {
+            return false;
+        }
+        // No regex patterns in text
+        if text.contains('|')
+            || text.contains('*')
+            || text.contains('+')
+            || text.contains('?')
+            || text.contains('[')
+            || text.contains('(')
+        {
+            return false;
+        }
+    }
+
+    true
+}
+
+fn is_supported_postag_pattern(pattern: &str, lang: &str) -> bool {
+    match lang {
+        "en" => {
+            // Penn Treebank patterns
+            // Supported: NN.*, VB.*, JJ.*, RB.*, exact tags
+            pattern.starts_with("NN")
+                || pattern.starts_with("VB")
+                || pattern.starts_with("JJ")
+                || pattern.starts_with("RB")
+                || pattern.starts_with("DT")
+                || pattern.starts_with("IN")
+                || pattern.starts_with("CC")
+                || pattern.starts_with("MD")
+                || pattern.starts_with("PRP")
+                || pattern.starts_with("WP")
+                || pattern.starts_with("WDT")
+                || pattern.starts_with("WRB")
+                || pattern.starts_with("CD")
+                || pattern.starts_with("TO")
+                || pattern.starts_with("RP")
+                || pattern.starts_with("SENT")
+                || pattern == ".*" // any tag
+        }
+        "fr" => {
+            // French tagset patterns
+            // Supported: V.*, N.*, A, D.*, R.*, P.*, etc.
+            pattern.starts_with('V')
+                || pattern.starts_with('N')
+                || pattern.starts_with('A')
+                || pattern.starts_with('D')
+                || pattern.starts_with('R')
+                || pattern.starts_with('P')
+                || pattern.starts_with('C')
+                || pattern.starts_with('J')
+                || pattern.starts_with('Z')
+                || pattern.starts_with("SENT")
+                || pattern == ".*"
+        }
+        _ => false,
+    }
+}
+
+fn is_supported_postag(tag: &str, lang: &str) -> bool {
+    match lang {
+        "en" => {
+            // Penn Treebank exact tags
+            matches!(
+                tag,
+                "CC" | "CD"
+                    | "DT"
+                    | "EX"
+                    | "FW"
+                    | "IN"
+                    | "JJ"
+                    | "JJR"
+                    | "JJS"
+                    | "NN"
+                    | "NNS"
+                    | "NNP"
+                    | "NNPS"
+                    | "MD"
+                    | "PDT"
+                    | "POS"
+                    | "PRP"
+                    | "PRP$"
+                    | "RB"
+                    | "RBR"
+                    | "RBS"
+                    | "RP"
+                    | "TO"
+                    | "UH"
+                    | "VB"
+                    | "VBD"
+                    | "VBG"
+                    | "VBN"
+                    | "VBP"
+                    | "VBZ"
+                    | "WDT"
+                    | "WP"
+                    | "WP$"
+                    | "WRB"
+                    | "SENT_START"
+                    | "SENT_END"
+            )
+        }
+        "fr" => {
+            // French tags are more complex with spaces
+            // Accept any tag that starts with known categories
+            tag.starts_with('V')
+                || tag.starts_with('N')
+                || tag.starts_with('A')
+                || tag.starts_with('D')
+                || tag.starts_with('R')
+                || tag.starts_with('P')
+                || tag.starts_with('C')
+                || tag.starts_with('J')
+                || tag.starts_with('Z')
+                || tag.starts_with("SENT")
+                || tag == "UNKNOWN"
+        }
+        _ => false,
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
 // Parser: confusion_sets.txt
 // ═══════════════════════════════════════════════════════════════════════════════
 
@@ -1029,6 +1519,63 @@ fn parse_style_file(path: &Path, category: StyleCategory) -> Result<Vec<StyleRul
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
+// Parser: custom redundancies (pléonasmes)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+fn parse_custom_redundancies(path: &Path) -> Result<Vec<StyleRule>, Box<dyn std::error::Error>> {
+    let file = fs::File::open(path)?;
+    let reader = BufReader::new(file);
+    let mut rules = Vec::new();
+
+    for line in reader.lines() {
+        let line = line?;
+        let line = line.trim();
+
+        // Skip comments and empty lines
+        if line.is_empty() || line.starts_with('#') {
+            continue;
+        }
+
+        // Format: phrase=suggestion1|suggestion2 or just phrase (for removal)
+        if let Some(eq_idx) = line.find('=') {
+            let phrase = line[..eq_idx].trim().to_lowercase();
+            let suggestions_part = line[eq_idx + 1..].trim();
+
+            // Parse suggestions (can be pipe-separated)
+            let suggestions: Vec<String> = suggestions_part
+                .split('|')
+                .map(|s| s.trim().to_string())
+                .filter(|s| !s.is_empty())
+                .collect();
+
+            if !phrase.is_empty() {
+                rules.push(StyleRule {
+                    phrase,
+                    suggestions: if suggestions.is_empty() {
+                        vec!["".to_string()] // Empty suggestion means "remove"
+                    } else {
+                        suggestions
+                    },
+                    category: StyleCategory::Redundancy,
+                });
+            }
+        } else {
+            // Just phrase without = means remove the phrase
+            let phrase = line.to_lowercase();
+            if !phrase.is_empty() {
+                rules.push(StyleRule {
+                    phrase,
+                    suggestions: vec!["".to_string()],
+                    category: StyleCategory::Redundancy,
+                });
+            }
+        }
+    }
+
+    Ok(rules)
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
 // Generator: patterns
 // ═══════════════════════════════════════════════════════════════════════════════
 
@@ -1086,6 +1633,107 @@ fn generate_patterns_file(rules: &[XmlRule], lang: &str) -> String {
     }
 
     output.push_str("];\n");
+    output
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Generator: POS patterns
+// ═══════════════════════════════════════════════════════════════════════════════
+
+fn generate_pos_patterns_file(rules: &[PosPatternRule], lang: &str) -> String {
+    let mut output = String::new();
+    let timestamp = chrono::Utc::now().to_rfc3339();
+
+    // Header
+    output.push_str(&format!(
+        "//! Auto-generated POS pattern rules for {} from LanguageTool\n\
+         //! Source: {}/grammar.xml\n\
+         //! Synced: {}\n\
+         //! Total rules: {}\n\
+         //! DO NOT EDIT MANUALLY - Run `cargo run --bin sync-lt` to update\n\
+         //!\n\
+         //! These rules use POS (Part-of-Speech) tagging to match patterns.\n\
+         //! They require the PosPatternChecker to be enabled.\n\n\
+         use crate::checker::pos_pattern_checker::{{PosPatternRule, PosPatternElement}};\n\n",
+        lang.to_uppercase(),
+        lang,
+        timestamp,
+        rules.len()
+    ));
+
+    // Generate static pattern arrays for each rule
+    for (idx, rule) in rules.iter().enumerate() {
+        output.push_str(&format!(
+            "static PATTERN_{}: &[PosPatternElement] = &[\n",
+            idx
+        ));
+        for elem in &rule.pattern {
+            let text = match &elem.text {
+                Some(t) => format!("Some(\"{}\")", escape_string(t)),
+                None => "None".to_string(),
+            };
+            let pos = match &elem.pos_pattern {
+                Some(p) => format!("Some(\"{}\")", escape_string(p)),
+                None => "None".to_string(),
+            };
+            output.push_str(&format!(
+                "    PosPatternElement {{ text: {}, pos_pattern: {}, negation: {} }},\n",
+                text, pos, elem.negation
+            ));
+        }
+        output.push_str("];\n\n");
+    }
+
+    // Generate the main array
+    output.push_str(&format!(
+        "/// POS pattern rules for {} (requires POS tagging)\n",
+        lang.to_uppercase()
+    ));
+    output.push_str(&format!(
+        "pub static {}_POS_PATTERN_RULES: &[PosPatternRule] = &[\n",
+        lang.to_uppercase()
+    ));
+
+    for (idx, rule) in rules.iter().enumerate() {
+        let suggestion = rule
+            .suggestions
+            .first()
+            .map(|s| escape_string(s))
+            .unwrap_or_default();
+        let message = escape_string(&rule.message.replace('\n', " "));
+        let suggestions = if rule.suggestions.is_empty() {
+            "&[]".to_string()
+        } else {
+            format!("&[\"{}\"]", suggestion)
+        };
+
+        output.push_str(&format!(
+            "    PosPatternRule {{\n\
+             \t\tid: \"{}\",\n\
+             \t\tpattern: PATTERN_{},\n\
+             \t\tmessage: \"{}\",\n\
+             \t\tsuggestions: {},\n\
+             \t}},\n",
+            escape_string(&rule.id),
+            idx,
+            message,
+            suggestions,
+        ));
+    }
+
+    output.push_str("];\n\n");
+
+    // Generate helper to create a checker
+    output.push_str(&format!(
+        "/// Create a PosPatternChecker with {} rules\n\
+         pub fn create_{}_pos_pattern_checker() -> crate::checker::pos_pattern_checker::PosPatternChecker {{\n\
+         \tcrate::checker::pos_pattern_checker::PosPatternChecker::with_rules({}_POS_PATTERN_RULES)\n\
+         }}\n",
+        lang.to_uppercase(),
+        lang.to_lowercase(),
+        lang.to_uppercase()
+    ));
+
     output
 }
 
@@ -1773,24 +2421,29 @@ fn generate_style_file(rules: &[StyleRule], lang: &str) -> String {
     let mut sorted_rules: Vec<_> = rules.to_vec();
     sorted_rules.sort_by(|a, b| a.phrase.cmp(&b.phrase));
 
-    // Generate the category enum
-    output.push_str("/// Style rule category\n");
-    output.push_str("#[derive(Debug, Clone, Copy, PartialEq, Eq)]\n");
-    output.push_str("pub enum StyleCategory {\n");
-    output.push_str("    /// Wordy phrases that can be simplified\n");
-    output.push_str("    Wordiness,\n");
-    output.push_str("    /// Redundant/pleonastic phrases\n");
-    output.push_str("    Redundancy,\n");
-    output.push_str("}\n\n");
+    // For non-English languages, import types from en_style
+    if lang.to_lowercase() != "en" {
+        output.push_str("use super::en_style::{StyleCategory, StyleRule};\n\n");
+    } else {
+        // Generate the category enum
+        output.push_str("/// Style rule category\n");
+        output.push_str("#[derive(Debug, Clone, Copy, PartialEq, Eq)]\n");
+        output.push_str("pub enum StyleCategory {\n");
+        output.push_str("    /// Wordy phrases that can be simplified\n");
+        output.push_str("    Wordiness,\n");
+        output.push_str("    /// Redundant/pleonastic phrases\n");
+        output.push_str("    Redundancy,\n");
+        output.push_str("}\n\n");
 
-    // Generate the rule struct
-    output.push_str("/// A style rule for detecting wordy or redundant phrases\n");
-    output.push_str("#[derive(Debug, Clone)]\n");
-    output.push_str("pub struct StyleRule {\n");
-    output.push_str("    pub phrase: &'static str,\n");
-    output.push_str("    pub suggestions: &'static [&'static str],\n");
-    output.push_str("    pub category: StyleCategory,\n");
-    output.push_str("}\n\n");
+        // Generate the rule struct
+        output.push_str("/// A style rule for detecting wordy or redundant phrases\n");
+        output.push_str("#[derive(Debug, Clone)]\n");
+        output.push_str("pub struct StyleRule {\n");
+        output.push_str("    pub phrase: &'static str,\n");
+        output.push_str("    pub suggestions: &'static [&'static str],\n");
+        output.push_str("    pub category: StyleCategory,\n");
+        output.push_str("}\n\n");
+    }
 
     // Generate the array
     output.push_str(&format!(
@@ -1875,6 +2528,7 @@ fn update_data_mod(output_dir: &Path, lang: &str) -> Result<(), Box<dyn std::err
 
     // Add modules if not present
     let patterns_mod = format!("pub mod {}_patterns;", lang);
+    let pos_patterns_mod = format!("pub mod {}_pos_patterns;", lang);
     let confusion_mod = format!("pub mod {}_confusion;", lang);
     let replace_mod = format!("pub mod {}_replace;", lang);
     let pattern_tests_mod = format!("pub mod {}_pattern_tests;", lang);
@@ -1886,9 +2540,19 @@ fn update_data_mod(output_dir: &Path, lang: &str) -> Result<(), Box<dyn std::err
     let determiners_mod = format!("pub mod {}_determiners;", lang);
     let context_words_mod = format!("pub mod {}_context_words;", lang);
     let synonyms_mod = format!("pub mod {}_synonyms;", lang);
+    let confusion_extended_mod = format!("pub mod {}_confusion_extended;", lang);
+    let uncountable_mod = format!("pub mod {}_uncountable;", lang);
+    let partlycountable_mod = format!("pub mod {}_partlycountable;", lang);
+    let proper_nouns_mod = format!("pub mod {}_proper_nouns;", lang);
+    let compounds_mod = format!("pub mod {}_compounds;", lang);
+    let multiwords_mod = format!("pub mod {}_multiwords;", lang);
+    let hyphenated_mod = format!("pub mod {}_hyphenated;", lang);
+    let spelling_mod = format!("pub mod {}_spelling;", lang);
+    let ignore_mod = format!("pub mod {}_ignore;", lang);
 
     // Check if files exist
     let patterns_exists = output_dir.join(format!("{}_patterns.rs", lang)).exists();
+    let pos_patterns_exists = output_dir.join(format!("{}_pos_patterns.rs", lang)).exists();
     let confusion_exists = output_dir.join(format!("{}_confusion.rs", lang)).exists();
     let replace_exists = output_dir.join(format!("{}_replace.rs", lang)).exists();
     let pattern_tests_exists = output_dir.join(format!("{}_pattern_tests.rs", lang)).exists();
@@ -1900,9 +2564,22 @@ fn update_data_mod(output_dir: &Path, lang: &str) -> Result<(), Box<dyn std::err
     let determiners_exists = output_dir.join(format!("{}_determiners.rs", lang)).exists();
     let context_words_exists = output_dir.join(format!("{}_context_words.rs", lang)).exists();
     let synonyms_exists = output_dir.join(format!("{}_synonyms.rs", lang)).exists();
+    let confusion_extended_exists = output_dir.join(format!("{}_confusion_extended.rs", lang)).exists();
+    let uncountable_exists = output_dir.join(format!("{}_uncountable.rs", lang)).exists();
+    let partlycountable_exists = output_dir.join(format!("{}_partlycountable.rs", lang)).exists();
+    let proper_nouns_exists = output_dir.join(format!("{}_proper_nouns.rs", lang)).exists();
+    let compounds_exists = output_dir.join(format!("{}_compounds.rs", lang)).exists();
+    let multiwords_exists = output_dir.join(format!("{}_multiwords.rs", lang)).exists();
+    let hyphenated_exists = output_dir.join(format!("{}_hyphenated.rs", lang)).exists();
+    let spelling_exists = output_dir.join(format!("{}_spelling.rs", lang)).exists();
+    let ignore_exists = output_dir.join(format!("{}_ignore.rs", lang)).exists();
 
     if patterns_exists && !content.contains(&patterns_mod) {
         content.push_str(&format!("{}\n", patterns_mod));
+    }
+
+    if pos_patterns_exists && !content.contains(&pos_patterns_mod) {
+        content.push_str(&format!("{}\n", pos_patterns_mod));
     }
 
     if confusion_exists && !content.contains(&confusion_mod) {
@@ -1949,6 +2626,42 @@ fn update_data_mod(output_dir: &Path, lang: &str) -> Result<(), Box<dyn std::err
         content.push_str(&format!("{}\n", synonyms_mod));
     }
 
+    if confusion_extended_exists && !content.contains(&confusion_extended_mod) {
+        content.push_str(&format!("{}\n", confusion_extended_mod));
+    }
+
+    if uncountable_exists && !content.contains(&uncountable_mod) {
+        content.push_str(&format!("{}\n", uncountable_mod));
+    }
+
+    if partlycountable_exists && !content.contains(&partlycountable_mod) {
+        content.push_str(&format!("{}\n", partlycountable_mod));
+    }
+
+    if proper_nouns_exists && !content.contains(&proper_nouns_mod) {
+        content.push_str(&format!("{}\n", proper_nouns_mod));
+    }
+
+    if compounds_exists && !content.contains(&compounds_mod) {
+        content.push_str(&format!("{}\n", compounds_mod));
+    }
+
+    if multiwords_exists && !content.contains(&multiwords_mod) {
+        content.push_str(&format!("{}\n", multiwords_mod));
+    }
+
+    if hyphenated_exists && !content.contains(&hyphenated_mod) {
+        content.push_str(&format!("{}\n", hyphenated_mod));
+    }
+
+    if spelling_exists && !content.contains(&spelling_mod) {
+        content.push_str(&format!("{}\n", spelling_mod));
+    }
+
+    if ignore_exists && !content.contains(&ignore_mod) {
+        content.push_str(&format!("{}\n", ignore_mod));
+    }
+
     // Add re-exports if not present
     if patterns_exists {
         let pattern_export = format!(
@@ -1958,6 +2671,18 @@ fn update_data_mod(output_dir: &Path, lang: &str) -> Result<(), Box<dyn std::err
         );
         if !content.contains(&pattern_export) {
             content.push_str(&format!("\n{}\n", pattern_export));
+        }
+    }
+
+    if pos_patterns_exists {
+        let pos_pattern_export = format!(
+            "pub use {}_pos_patterns::{{{}_POS_PATTERN_RULES, create_{}_pos_pattern_checker}};",
+            lang,
+            lang.to_uppercase(),
+            lang.to_lowercase()
+        );
+        if !content.contains(&format!("{}_pos_patterns::", lang)) {
+            content.push_str(&format!("\n{}\n", pos_pattern_export));
         }
     }
 
@@ -2602,6 +3327,656 @@ fn generate_synonyms_file(rules: &[SynonymRule], lang: &str) -> String {
          }}\n",
         lang.to_lowercase(),
         lang.to_uppercase(),
+        lang.to_uppercase()
+    ));
+
+    output
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Parser: confusion_sets_extended.txt
+// ═══════════════════════════════════════════════════════════════════════════════
+
+fn parse_confusion_extended(path: &Path) -> Result<Vec<ConfusionPair>, Box<dyn std::error::Error>> {
+    let file = fs::File::open(path)?;
+    let reader = BufReader::new(file);
+    let mut pairs = Vec::new();
+    let mut seen = std::collections::HashSet::new();
+
+    for line in reader.lines() {
+        let line = line?;
+        let line = line.trim();
+
+        // Skip comments and empty lines
+        if line.is_empty() || line.starts_with('#') {
+            continue;
+        }
+
+        // Remove inline comments
+        let line = if let Some(idx) = line.find('#') {
+            line[..idx].trim()
+        } else {
+            line
+        };
+
+        // Parse format: word1 -> word2; factor   OR   word1; word2; factor
+        let bidirectional = !line.contains("->");
+
+        let parts: Vec<&str> = if bidirectional {
+            line.split(';').map(|s| s.trim()).collect()
+        } else {
+            // word1 -> word2; factor
+            let arrow_split: Vec<&str> = line.split("->").collect();
+            if arrow_split.len() != 2 {
+                continue;
+            }
+            let word1 = arrow_split[0].trim();
+            let rest: Vec<&str> = arrow_split[1].split(';').map(|s| s.trim()).collect();
+            if rest.len() < 2 {
+                continue;
+            }
+            vec![word1, rest[0], rest[1]]
+        };
+
+        if parts.len() < 3 {
+            continue;
+        }
+
+        let word1 = parts[0].to_lowercase();
+        let word2 = parts[1].to_lowercase();
+        let factor: u64 = parts[2].parse().unwrap_or(1000);
+
+        // Skip pairs with empty words
+        if word1.is_empty() || word2.is_empty() {
+            continue;
+        }
+
+        // Deduplicate - keep only the first (highest precision) entry for each pair
+        let key = if word1 < word2 {
+            format!("{}:{}", word1, word2)
+        } else {
+            format!("{}:{}", word2, word1)
+        };
+
+        if seen.contains(&key) {
+            continue;
+        }
+        seen.insert(key);
+
+        pairs.push(ConfusionPair {
+            word1,
+            word2,
+            factor,
+            bidirectional,
+        });
+    }
+
+    Ok(pairs)
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Generator: confusion_sets_extended
+// ═══════════════════════════════════════════════════════════════════════════════
+
+fn generate_confusion_extended_file(pairs: &[ConfusionPair], lang: &str) -> String {
+    let mut output = String::new();
+    let timestamp = chrono::Utc::now().to_rfc3339();
+
+    output.push_str(&format!(
+        "//! Auto-generated extended confusion data for {} from LanguageTool\n\
+         //! Synced: {}\n\
+         //! Total pairs: {}\n\
+         //! DO NOT EDIT MANUALLY - Run `cargo run --bin sync-lt` to update\n\
+         //!\n\
+         //! Source: LanguageTool confusion_sets_extended.txt\n\
+         //! License: LGPL 2.1+\n\
+         //!\n\
+         //! Extended confusion pairs for detecting commonly confused words.\n\
+         //! Higher precision than basic confusion sets.\n\n",
+        lang.to_uppercase(),
+        timestamp,
+        pairs.len()
+    ));
+
+    // Define the ConfusionPair struct
+    output.push_str("/// A confusion pair for detecting commonly confused words\n");
+    output.push_str("#[derive(Debug, Clone, Copy)]\n");
+    output.push_str("pub struct ConfusionPair {\n");
+    output.push_str("    /// First word in the confusion pair\n");
+    output.push_str("    pub word1: &'static str,\n");
+    output.push_str("    /// Second word in the confusion pair\n");
+    output.push_str("    pub word2: &'static str,\n");
+    output.push_str("    /// Confusion factor (higher = more confident)\n");
+    output.push_str("    pub factor: u64,\n");
+    output.push_str("    /// Whether the confusion is bidirectional\n");
+    output.push_str("    pub bidirectional: bool,\n");
+    output.push_str("}\n\n");
+
+    // Build sorted pairs for binary search
+    let mut sorted_pairs = pairs.to_vec();
+    sorted_pairs.sort_by(|a, b| a.word1.cmp(&b.word1).then(a.word2.cmp(&b.word2)));
+
+    output.push_str(&format!(
+        "/// Extended confusion pairs for {} (sorted for binary search)\n",
+        lang.to_uppercase()
+    ));
+    output.push_str(&format!("/// Total pairs: {}\n", pairs.len()));
+    output.push_str(&format!(
+        "pub const {}_CONFUSION_EXTENDED: &[ConfusionPair] = &[\n",
+        lang.to_uppercase()
+    ));
+
+    for pair in &sorted_pairs {
+        output.push_str(&format!(
+            "    ConfusionPair {{ word1: \"{}\", word2: \"{}\", factor: {}, bidirectional: {} }},\n",
+            escape_string(&pair.word1),
+            escape_string(&pair.word2),
+            pair.factor,
+            pair.bidirectional
+        ));
+    }
+
+    output.push_str("];\n\n");
+
+    // Build lookup map
+    output.push_str("use std::collections::HashMap;\n");
+    output.push_str("use std::sync::LazyLock;\n\n");
+
+    output.push_str(&format!(
+        "/// Lookup map for extended confusions by word\n\
+         pub static {}_CONFUSION_EXTENDED_LOOKUP: LazyLock<HashMap<&'static str, Vec<&'static ConfusionPair>>> = LazyLock::new(|| {{\n\
+         \tlet mut map: HashMap<&'static str, Vec<&'static ConfusionPair>> = HashMap::new();\n\
+         \tfor pair in {}_CONFUSION_EXTENDED {{\n\
+         \t\tmap.entry(pair.word1).or_default().push(pair);\n\
+         \t\tif pair.bidirectional {{\n\
+         \t\t\tmap.entry(pair.word2).or_default().push(pair);\n\
+         \t\t}}\n\
+         \t}}\n\
+         \tmap\n\
+         }});\n\n",
+        lang.to_uppercase(),
+        lang.to_uppercase()
+    ));
+
+    // Generate lookup function
+    output.push_str(&format!(
+        "/// Get extended confusions for a word\n\
+         pub fn get_{}_confusion_extended(word: &str) -> Option<&Vec<&'static ConfusionPair>> {{\n\
+         \t{}_CONFUSION_EXTENDED_LOOKUP.get(word)\n\
+         }}\n",
+        lang.to_lowercase(),
+        lang.to_uppercase()
+    ));
+
+    output
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Parser: generic word list (uncountable.txt, partlycountable.txt, hyphenated_words.txt, etc.)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+fn parse_word_list(path: &Path) -> Result<Vec<String>, Box<dyn std::error::Error>> {
+    let file = fs::File::open(path)?;
+    let reader = BufReader::new(file);
+    let mut words = Vec::new();
+
+    for line in reader.lines() {
+        let line = line?;
+        let word = line.trim();
+
+        // Skip comments and empty lines
+        if word.is_empty() || word.starts_with('#') {
+            continue;
+        }
+
+        // Only keep words (skip if purely numeric)
+        if word.chars().any(|c| c.is_alphabetic()) {
+            words.push(word.to_string());
+        }
+    }
+
+    // Sort and deduplicate
+    words.sort();
+    words.dedup();
+
+    Ok(words)
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Generator: generic word list
+// ═══════════════════════════════════════════════════════════════════════════════
+
+fn generate_word_list_file(words: &[String], lang: &str, name: &str, description: &str) -> String {
+    let mut output = String::new();
+    let timestamp = chrono::Utc::now().to_rfc3339();
+    let const_name = format!("{}_{}", lang.to_uppercase(), name.to_uppercase());
+    let fn_name = format!("is_{}_{}", lang.to_lowercase(), name.to_lowercase());
+
+    output.push_str(&format!(
+        "//! Auto-generated {} word list for {} from LanguageTool\n\
+         //! Synced: {}\n\
+         //! Total words: {}\n\
+         //! DO NOT EDIT MANUALLY - Run `cargo run --bin sync-lt` to update\n\
+         //!\n\
+         //! Source: LanguageTool {}.txt\n\
+         //! License: LGPL 2.1+\n\
+         //!\n\
+         //! {}\n\n",
+        name,
+        lang.to_uppercase(),
+        timestamp,
+        words.len(),
+        name,
+        description
+    ));
+
+    output.push_str(&format!(
+        "/// {} words for {} (sorted for binary search)\n",
+        name.replace('_', " ").to_uppercase(),
+        lang.to_uppercase()
+    ));
+    output.push_str(&format!("/// Total words: {}\n", words.len()));
+    output.push_str(&format!("pub const {}: &[&str] = &[\n", const_name));
+
+    for word in words {
+        output.push_str(&format!("    \"{}\",\n", escape_string(word)));
+    }
+
+    output.push_str("];\n\n");
+
+    // Generate lookup function
+    output.push_str(&format!(
+        "/// Check if a word is in the {} list (binary search)\n\
+         pub fn {}(word: &str) -> bool {{\n\
+         \t{}.binary_search(&word).is_ok()\n\
+         }}\n",
+        name,
+        fn_name,
+        const_name
+    ));
+
+    output
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Parser: specific_case.txt (proper nouns with specific casing)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+fn parse_specific_case(path: &Path) -> Result<Vec<String>, Box<dyn std::error::Error>> {
+    let file = fs::File::open(path)?;
+    let reader = BufReader::new(file);
+    let mut words = Vec::new();
+
+    for line in reader.lines() {
+        let line = line?;
+        let word = line.trim();
+
+        // Skip comments and empty lines
+        if word.is_empty() || word.starts_with('#') {
+            continue;
+        }
+
+        // Keep the original casing for proper nouns
+        words.push(word.to_string());
+    }
+
+    // Sort (case-sensitive for proper nouns)
+    words.sort();
+    words.dedup();
+
+    Ok(words)
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Generator: specific_case (proper nouns)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+fn generate_specific_case_file(words: &[String], lang: &str) -> String {
+    let mut output = String::new();
+    let timestamp = chrono::Utc::now().to_rfc3339();
+
+    output.push_str(&format!(
+        "//! Auto-generated proper nouns for {} from LanguageTool\n\
+         //! Synced: {}\n\
+         //! Total entries: {}\n\
+         //! DO NOT EDIT MANUALLY - Run `cargo run --bin sync-lt` to update\n\
+         //!\n\
+         //! Source: LanguageTool specific_case.txt\n\
+         //! License: LGPL 2.1+\n\
+         //!\n\
+         //! Proper nouns with specific casing that should not trigger\n\
+         //! capitalization errors.\n\n",
+        lang.to_uppercase(),
+        timestamp,
+        words.len()
+    ));
+
+    output.push_str("use std::collections::HashSet;\n");
+    output.push_str("use std::sync::LazyLock;\n\n");
+
+    output.push_str(&format!(
+        "/// Proper nouns for {} (original casing preserved)\n",
+        lang.to_uppercase()
+    ));
+    output.push_str(&format!("/// Total entries: {}\n", words.len()));
+    output.push_str(&format!(
+        "pub const {}_PROPER_NOUNS: &[&str] = &[\n",
+        lang.to_uppercase()
+    ));
+
+    for word in words {
+        output.push_str(&format!("    \"{}\",\n", escape_string(word)));
+    }
+
+    output.push_str("];\n\n");
+
+    // Build lowercase lookup set
+    output.push_str(&format!(
+        "/// Lookup set for proper nouns (lowercase for case-insensitive matching)\n\
+         pub static {}_PROPER_NOUNS_LOWER: LazyLock<HashSet<String>> = LazyLock::new(|| {{\n\
+         \t{}_PROPER_NOUNS.iter().map(|s| s.to_lowercase()).collect()\n\
+         }});\n\n",
+        lang.to_uppercase(),
+        lang.to_uppercase()
+    ));
+
+    // Generate lookup function
+    output.push_str(&format!(
+        "/// Check if a phrase is a proper noun (case-insensitive)\n\
+         pub fn is_{}_proper_noun(phrase: &str) -> bool {{\n\
+         \t{}_PROPER_NOUNS_LOWER.contains(&phrase.to_lowercase())\n\
+         }}\n\n",
+        lang.to_lowercase(),
+        lang.to_uppercase()
+    ));
+
+    // Generate correct casing lookup
+    output.push_str(&format!(
+        "/// Get the correct casing for a proper noun\n\
+         pub fn get_{}_proper_noun_casing(phrase: &str) -> Option<&'static str> {{\n\
+         \tlet lower = phrase.to_lowercase();\n\
+         \t{}_PROPER_NOUNS.iter().find(|s| s.to_lowercase() == lower).copied()\n\
+         }}\n",
+        lang.to_lowercase(),
+        lang.to_uppercase()
+    ));
+
+    output
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Parser: compounds.txt
+// ═══════════════════════════════════════════════════════════════════════════════
+
+fn parse_compounds_txt(path: &Path) -> Result<Vec<CompoundRule>, Box<dyn std::error::Error>> {
+    let file = fs::File::open(path)?;
+    let reader = BufReader::new(file);
+    let mut rules = Vec::new();
+
+    for line in reader.lines() {
+        let line = line?;
+        let line = line.trim();
+
+        // Skip comments and empty lines
+        if line.is_empty() || line.starts_with('#') {
+            continue;
+        }
+
+        // Parse modifiers at end: +, *, ?, $
+        let mut word = line.to_string();
+        let allow_no_hyphen = word.ends_with('+');
+        let hyphen_only = word.ends_with('*');
+        let lowercase_joined = word.ends_with('?');
+        let allow_both = word.ends_with('$');
+
+        // Remove modifier
+        if allow_no_hyphen || hyphen_only || lowercase_joined || allow_both {
+            word.pop();
+        }
+
+        // Skip if no hyphen (invalid entry)
+        if !word.contains('-') {
+            continue;
+        }
+
+        rules.push(CompoundRule {
+            word: word.to_lowercase(),
+            allow_no_hyphen,
+            hyphen_only,
+            lowercase_joined,
+            allow_both,
+        });
+    }
+
+    // Sort and deduplicate
+    rules.sort_by(|a, b| a.word.cmp(&b.word));
+    rules.dedup_by(|a, b| a.word == b.word);
+
+    Ok(rules)
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Generator: compounds
+// ═══════════════════════════════════════════════════════════════════════════════
+
+fn generate_compounds_file(rules: &[CompoundRule], lang: &str) -> String {
+    let mut output = String::new();
+    let timestamp = chrono::Utc::now().to_rfc3339();
+
+    output.push_str(&format!(
+        "//! Auto-generated compound word rules for {} from LanguageTool\n\
+         //! Synced: {}\n\
+         //! Total rules: {}\n\
+         //! DO NOT EDIT MANUALLY - Run `cargo run --bin sync-lt` to update\n\
+         //!\n\
+         //! Source: LanguageTool compounds.txt\n\
+         //! License: LGPL 2.1+\n\
+         //!\n\
+         //! Compound word rules for detecting words that should be hyphenated\n\
+         //! or joined together.\n\n",
+        lang.to_uppercase(),
+        timestamp,
+        rules.len()
+    ));
+
+    // Define the rule struct
+    output.push_str("/// A compound word rule\n");
+    output.push_str("#[derive(Debug, Clone, Copy)]\n");
+    output.push_str("pub struct CompoundRule {\n");
+    output.push_str("    /// The hyphenated form of the compound\n");
+    output.push_str("    pub word: &'static str,\n");
+    output.push_str("    /// Allow non-hyphenated form (e.g., \"backfire\" for \"back-fire\")\n");
+    output.push_str("    pub allow_no_hyphen: bool,\n");
+    output.push_str("    /// Only suggest hyphenated form\n");
+    output.push_str("    pub hyphen_only: bool,\n");
+    output.push_str("    /// Suggest lowercase joined form\n");
+    output.push_str("    pub lowercase_joined: bool,\n");
+    output.push_str("    /// Allow both hyphenated and non-hyphenated\n");
+    output.push_str("    pub allow_both: bool,\n");
+    output.push_str("}\n\n");
+
+    output.push_str(&format!(
+        "/// Compound rules for {} (sorted for binary search)\n",
+        lang.to_uppercase()
+    ));
+    output.push_str(&format!("/// Total rules: {}\n", rules.len()));
+    output.push_str(&format!(
+        "pub const {}_COMPOUND_RULES: &[CompoundRule] = &[\n",
+        lang.to_uppercase()
+    ));
+
+    for rule in rules {
+        output.push_str(&format!(
+            "    CompoundRule {{ word: \"{}\", allow_no_hyphen: {}, hyphen_only: {}, lowercase_joined: {}, allow_both: {} }},\n",
+            escape_string(&rule.word),
+            rule.allow_no_hyphen,
+            rule.hyphen_only,
+            rule.lowercase_joined,
+            rule.allow_both
+        ));
+    }
+
+    output.push_str("];\n\n");
+
+    // Build lookup map by non-hyphenated form
+    output.push_str("use std::collections::HashMap;\n");
+    output.push_str("use std::sync::LazyLock;\n\n");
+
+    output.push_str(&format!(
+        "/// Lookup map for compounds by non-hyphenated form\n\
+         pub static {}_COMPOUND_LOOKUP: LazyLock<HashMap<String, &'static CompoundRule>> = LazyLock::new(|| {{\n\
+         \tlet mut map = HashMap::new();\n\
+         \tfor rule in {}_COMPOUND_RULES {{\n\
+         \t\t// Add lookup by joined form (without hyphen)\n\
+         \t\tlet joined: String = rule.word.chars().filter(|c| *c != '-').collect();\n\
+         \t\tmap.insert(joined, rule);\n\
+         \t}}\n\
+         \tmap\n\
+         }});\n\n",
+        lang.to_uppercase(),
+        lang.to_uppercase()
+    ));
+
+    // Generate lookup function
+    output.push_str(&format!(
+        "/// Get compound rule for a word (looks up by non-hyphenated form)\n\
+         pub fn get_{}_compound(word: &str) -> Option<&'static CompoundRule> {{\n\
+         \t{}_COMPOUND_LOOKUP.get(&word.to_lowercase()).copied()\n\
+         }}\n",
+        lang.to_lowercase(),
+        lang.to_uppercase()
+    ));
+
+    output
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Parser: multiwords.txt
+// ═══════════════════════════════════════════════════════════════════════════════
+
+fn parse_multiwords_txt(path: &Path) -> Result<Vec<MultiwordEntry>, Box<dyn std::error::Error>> {
+    let file = fs::File::open(path)?;
+    let reader = BufReader::new(file);
+    let mut entries = Vec::new();
+
+    for line in reader.lines() {
+        let line = line?;
+        let line = line.trim();
+
+        // Skip comments and empty lines
+        if line.is_empty() || line.starts_with('#') {
+            continue;
+        }
+
+        // Remove inline comments
+        let line = if let Some(idx) = line.find('#') {
+            line[..idx].trim()
+        } else {
+            line
+        };
+
+        // Format: phrase\tPOS_TAG
+        let parts: Vec<&str> = line.split('\t').collect();
+        if parts.len() < 2 {
+            continue;
+        }
+
+        let phrase = parts[0].trim();
+        let pos_tag = parts[1].trim();
+
+        if phrase.is_empty() || pos_tag.is_empty() {
+            continue;
+        }
+
+        entries.push(MultiwordEntry {
+            phrase: phrase.to_string(),
+            pos_tag: pos_tag.to_string(),
+        });
+    }
+
+    // Sort by phrase
+    entries.sort_by(|a, b| a.phrase.to_lowercase().cmp(&b.phrase.to_lowercase()));
+
+    Ok(entries)
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Generator: multiwords
+// ═══════════════════════════════════════════════════════════════════════════════
+
+fn generate_multiwords_file(entries: &[MultiwordEntry], lang: &str) -> String {
+    let mut output = String::new();
+    let timestamp = chrono::Utc::now().to_rfc3339();
+
+    output.push_str(&format!(
+        "//! Auto-generated multiword expressions for {} from LanguageTool\n\
+         //! Synced: {}\n\
+         //! Total entries: {}\n\
+         //! DO NOT EDIT MANUALLY - Run `cargo run --bin sync-lt` to update\n\
+         //!\n\
+         //! Source: LanguageTool multiwords.txt\n\
+         //! License: LGPL 2.1+\n\
+         //!\n\
+         //! Multiword expressions with their POS tags for disambiguation.\n\n",
+        lang.to_uppercase(),
+        timestamp,
+        entries.len()
+    ));
+
+    // Define the entry struct
+    output.push_str("/// A multiword expression entry\n");
+    output.push_str("#[derive(Debug, Clone, Copy)]\n");
+    output.push_str("pub struct MultiwordEntry {\n");
+    output.push_str("    /// The multiword phrase\n");
+    output.push_str("    pub phrase: &'static str,\n");
+    output.push_str("    /// The POS tag for this phrase\n");
+    output.push_str("    pub pos_tag: &'static str,\n");
+    output.push_str("}\n\n");
+
+    output.push_str(&format!(
+        "/// Multiword entries for {} (sorted for binary search)\n",
+        lang.to_uppercase()
+    ));
+    output.push_str(&format!("/// Total entries: {}\n", entries.len()));
+    output.push_str(&format!(
+        "pub const {}_MULTIWORDS: &[MultiwordEntry] = &[\n",
+        lang.to_uppercase()
+    ));
+
+    for entry in entries {
+        output.push_str(&format!(
+            "    MultiwordEntry {{ phrase: \"{}\", pos_tag: \"{}\" }},\n",
+            escape_string(&entry.phrase),
+            escape_string(&entry.pos_tag)
+        ));
+    }
+
+    output.push_str("];\n\n");
+
+    // Build lookup map
+    output.push_str("use std::collections::HashMap;\n");
+    output.push_str("use std::sync::LazyLock;\n\n");
+
+    output.push_str(&format!(
+        "/// Lookup map for multiwords by lowercase phrase\n\
+         pub static {}_MULTIWORD_LOOKUP: LazyLock<HashMap<String, &'static MultiwordEntry>> = LazyLock::new(|| {{\n\
+         \tlet mut map = HashMap::new();\n\
+         \tfor entry in {}_MULTIWORDS {{\n\
+         \t\tmap.insert(entry.phrase.to_lowercase(), entry);\n\
+         \t}}\n\
+         \tmap\n\
+         }});\n\n",
+        lang.to_uppercase(),
+        lang.to_uppercase()
+    ));
+
+    // Generate lookup function
+    output.push_str(&format!(
+        "/// Get multiword entry for a phrase (case-insensitive)\n\
+         pub fn get_{}_multiword(phrase: &str) -> Option<&'static MultiwordEntry> {{\n\
+         \t{}_MULTIWORD_LOOKUP.get(&phrase.to_lowercase()).copied()\n\
+         }}\n",
+        lang.to_lowercase(),
         lang.to_uppercase()
     ));
 

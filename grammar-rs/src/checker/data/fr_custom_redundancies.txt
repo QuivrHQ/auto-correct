@@ -1,0 +1,66 @@
+# French custom redundancies (pléonasmes)
+# Format: phrase=suggestions (pipe-separated) or just phrase for removal
+# Source: Common French pleonasms
+
+# Directional pleonasms
+monter en haut=monter
+descendre en bas=descendre
+sortir dehors=sortir
+rentrer dedans=rentrer
+entrer dedans=entrer
+reculer en arrière=reculer
+avancer en avant=avancer
+
+# Redundant expressions
+car effectivement=car|effectivement
+sûr et certain=sûr|certain
+seul et unique=seul|unique
+ajouter en plus=ajouter
+répéter encore=répéter
+prévoir à l'avance=prévoir
+prédire à l'avance=prédire
+préparer à l'avance=préparer
+réserver à l'avance=réserver
+planifier à l'avance=planifier
+
+# Absolute modifiers
+complètement achevé=achevé
+totalement achevé=achevé
+entièrement terminé=terminé
+totalement terminé=terminé
+absolument nécessaire=nécessaire
+absolument essentiel=essentiel
+parfaitement identique=identique
+exactement pareil=pareil
+
+# Temporal pleonasms
+puis ensuite=puis|ensuite
+puis après=puis|après
+puis enfin=enfin
+d'abord en premier=d'abord|en premier
+actuellement en ce moment=actuellement|en ce moment
+
+# Quantity pleonasms
+très infime=infime
+très minime=minime
+très minuscule=minuscule
+très immense=immense
+très énorme=énorme
+petit nain=nain
+
+# Other common pleonasms
+fait concret=fait
+hasard imprévu=hasard
+fausse illusion=illusion
+vrai fait=fait
+nouveau renouveau=renouveau
+don gratuit=don
+bref résumé=résumé
+courte brève=brève
+principal protagoniste=protagoniste
+deux jumeaux=jumeaux
+collaborer ensemble=collaborer
+coopérer ensemble=coopérer
+s'entraider mutuellement=s'entraider
+se réunir ensemble=se réunir
+apprendre de nouveau=réapprendre

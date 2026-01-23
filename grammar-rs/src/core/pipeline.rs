@@ -3,6 +3,7 @@
 //! C'est ici que la magie opère : tu peux swapper n'importe quelle
 //! implémentation sans changer le reste du code.
 
+use super::filter::FilterChain;
 use super::traits::{Analyzer, Checker, GrammarChecker, Tokenizer};
 use super::CheckResult;
 use std::sync::Arc;
@@ -12,6 +13,7 @@ pub struct Pipeline {
     tokenizer: Arc<dyn Tokenizer>,
     analyzer: Arc<dyn Analyzer>,
     checkers: Vec<Arc<dyn Checker>>,
+    filters: Option<FilterChain>,
 }
 
 impl Pipeline {
@@ -23,6 +25,7 @@ impl Pipeline {
             tokenizer: Arc::new(tokenizer),
             analyzer: Arc::new(analyzer),
             checkers: Vec::new(),
+            filters: None,
         }
     }
 
@@ -37,10 +40,25 @@ impl Pipeline {
         self.checkers.extend(checkers);
         self
     }
+
+    /// Ajoute une chaîne de filtres pour réduire les faux positifs
+    pub fn with_filters(mut self, filters: FilterChain) -> Self {
+        self.filters = Some(filters);
+        self
+    }
+
+    /// Ajoute les filtres par défaut (URLs, code, quotes, dates, numbers)
+    pub fn with_default_filters(mut self) -> Self {
+        self.filters = Some(crate::filter::default_filters());
+        self
+    }
 }
 
 impl GrammarChecker for Pipeline {
     fn check_text(&self, text: &str) -> CheckResult {
+        // Étape 0: Find masked regions (if filters are configured)
+        let masks = self.filters.as_ref().map(|f| f.find_all_masks(text));
+
         // Étape 1: Tokenize
         let tokens = self.tokenizer.tokenize(text);
 
@@ -51,6 +69,11 @@ impl GrammarChecker for Pipeline {
         let mut result = CheckResult::new();
         for checker in &self.checkers {
             result.merge(checker.check(text, &analyzed));
+        }
+
+        // Étape 4: Filter out matches in masked regions
+        if let Some(ref masks) = masks {
+            result = result.filter_masked(masks);
         }
 
         // Nettoyer et trier
@@ -65,6 +88,9 @@ impl Pipeline {
     pub fn check_text_parallel(&self, text: &str) -> CheckResult {
         use rayon::prelude::*;
 
+        // Find masked regions (if filters are configured)
+        let masks = self.filters.as_ref().map(|f| f.find_all_masks(text));
+
         let tokens = self.tokenizer.tokenize(text);
         let analyzed = self.analyzer.analyze(tokens);
 
@@ -78,6 +104,12 @@ impl Pipeline {
         for r in results {
             result.merge(r);
         }
+
+        // Filter out matches in masked regions
+        if let Some(ref masks) = masks {
+            result = result.filter_masked(masks);
+        }
+
         result.sort_and_dedupe();
         result
     }

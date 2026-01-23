@@ -1,43 +1,105 @@
-# Custom French confusion pairs for grammar-rs
-# Format: word1 -> word2; factor
-# These are merged with LanguageTool's confusion_sets.txt during sync
-# Only add high-confidence pairs with good context detection
+# French custom confusion pairs
+# Format: word1 -> word2; frequency_factor
+# Higher factor = more common word
 
-# Common accent confusions
-a -> à; 1000
-ou -> où; 1000
-
-# Verb conjugation confusions
-ai -> ait; 100
-ait -> ai; 100
-est -> et; 1000
-et -> est; 1000
-sont -> son; 1000
-son -> sont; 1000
-ont -> on; 1000
-on -> ont; 1000
-ces -> ses; 1000
-ses -> ces; 1000
+# Homophones fréquents
 ce -> se; 100
 se -> ce; 100
+foi -> fois; 500
+fois -> foi; 500
+a -> à; 1000
+à -> a; 1000
+ai -> ait; 100
+ait -> ai; 100
+es -> est; 100
+est -> es; 100
+et -> est; 500
+est -> et; 500
+ou -> où; 500
+où -> ou; 500
+on -> ont; 500
+ont -> on; 500
+son -> sont; 500
+sont -> son; 500
+sa -> ça; 100
+ça -> sa; 100
+la -> là; 100
+là -> la; 100
+ma -> m'a; 100
+m'a -> ma; 100
+ta -> t'a; 100
+t'a -> ta; 100
 
-# Homophones
-mer -> mère; 1000
-mère -> mer; 1000
-ver -> verre; 1000
-ver -> vers; 1000
-ver -> vert; 1000
-cou -> coup; 100
-coup -> cou; 100
-cour -> cours; 100
-cours -> cour; 100
-foi -> fois; 1000
-fois -> foi; 1000
-foie -> foi; 100
-foi -> foie; 100
+# Homophones avec accent
 voie -> voix; 1000
 voix -> voie; 1000
-soi -> soit; 100
-soit -> soi; 100
-près -> prêt; 100
-prêt -> près; 100
+près -> prêt; 1000
+prêt -> près; 1000
+peu -> peux; 100
+peux -> peu; 100
+peut -> peu; 100
+peu -> peut; 100
+du -> dû; 100
+dû -> du; 100
+sur -> sûr; 100
+sûr -> sur; 100
+mur -> mûr; 100
+mûr -> mur; 100
+
+# Homophones complexes
+cou -> coup; 1000
+coup -> cou; 1000
+coup -> coût; 1000
+coût -> coup; 1000
+cour -> cours; 500
+cours -> cour; 500
+cour -> court; 500
+court -> cour; 500
+vers -> vert; 500
+vert -> vers; 500
+ver -> vers; 500
+vers -> ver; 500
+verre -> vers; 500
+vers -> verre; 500
+mère -> mer; 500
+mer -> mère; 500
+maire -> mer; 500
+mer -> maire; 500
+paire -> père; 500
+père -> paire; 500
+pain -> pin; 500
+pin -> pain; 500
+saint -> sein; 500
+sein -> saint; 500
+sain -> saint; 500
+saint -> sain; 500
+cent -> sang; 500
+sang -> cent; 500
+sens -> sang; 500
+sang -> sens; 500
+
+# Confusions grammaticales
+quoique -> quoi que; 200
+quoi que -> quoique; 200
+parce que -> par ce que; 200
+quelque -> quel que; 200
+quel que -> quelque; 200
+quelquefois -> quelques fois; 200
+quelques fois -> quelquefois; 200
+davantage -> d'avantage; 300
+d'avantage -> davantage; 300
+plutôt -> plus tôt; 300
+plus tôt -> plutôt; 300
+bientôt -> bien tôt; 300
+aussitôt -> aussi tôt; 300
+sitôt -> si tôt; 300
+
+# Participes/infinitifs
+mangé -> manger; 100
+manger -> mangé; 100
+chanté -> chanter; 100
+chanter -> chanté; 100
+parlé -> parler; 100
+parler -> parlé; 100
+aller -> allé; 100
+allé -> aller; 100

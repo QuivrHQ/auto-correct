@@ -7,6 +7,7 @@
 use aho_corasick::AhoCorasick;
 
 use crate::checker::data::en_style::{StyleCategory, StyleRule, EN_STYLE_RULES};
+use crate::checker::data::fr_style::FR_STYLE_RULES;
 use crate::core::traits::Checker;
 use crate::core::{AnalyzedToken, CheckResult, Match, Severity};
 
@@ -25,6 +26,11 @@ impl StyleChecker {
     /// Create a new StyleChecker with the default English style rules.
     pub fn new() -> Self {
         Self::with_rules(EN_STYLE_RULES)
+    }
+
+    /// Create a new StyleChecker with the French style rules.
+    pub fn french() -> Self {
+        Self::with_rules(FR_STYLE_RULES)
     }
 
     /// Create a new StyleChecker with custom rules.
@@ -252,5 +258,41 @@ mod tests {
             "Expected at least 2 matches, got {}",
             result.matches.len()
         );
+    }
+
+    #[test]
+    fn test_french_redundancy_detection() {
+        let checker = StyleChecker::french();
+        // "monter en haut" is a classic French pleonasm
+        let text = "Il faut monter en haut de la tour.";
+        let tokens = vec![];
+
+        let result = checker.check(text, &tokens);
+        assert!(result.matches.len() >= 1, "Should detect French redundancy 'monter en haut'");
+
+        let has_redundancy = result.matches.iter().any(|m| m.rule_id.contains("REDUNDANCY"));
+        assert!(has_redundancy, "Expected redundancy rule, got: {:?}",
+            result.matches.iter().map(|m| &m.rule_id).collect::<Vec<_>>());
+    }
+
+    #[test]
+    fn test_french_pleonasm_descendre_en_bas() {
+        let checker = StyleChecker::french();
+        // Use the exact phrase from the rules
+        let text = "Il faut descendre en bas pour ouvrir la porte.";
+        let tokens = vec![];
+
+        let result = checker.check(text, &tokens);
+        assert!(!result.matches.is_empty(), "Should detect 'descendre en bas'");
+    }
+
+    #[test]
+    fn test_french_no_false_positives() {
+        let checker = StyleChecker::french();
+        let text = "Le chat monte sur la table et descend par l'escalier.";
+        let tokens = vec![];
+
+        let result = checker.check(text, &tokens);
+        assert!(result.matches.is_empty(), "No matches expected for clean French text");
     }
 }

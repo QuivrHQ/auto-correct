@@ -34,22 +34,29 @@ pub mod analyzer;
 pub mod checker;
 pub mod dictionary;
 pub mod lang_detect;
+pub mod filter;
 
 /// Prelude - importe tout ce dont tu as besoin
 pub mod prelude {
     pub use crate::core::{
         Token, TokenKind, AnalyzedToken, PosTag,
         Match, Severity, CheckResult,
+        MaskKind, MaskedRegion,
     };
     pub use crate::core::traits::{
         Tokenizer, Analyzer, Checker, Suggester, GrammarChecker,
     };
+    pub use crate::core::filter::{Filter, FilterChain};
     pub use crate::core::pipeline::Pipeline;
     pub use crate::tokenizer::{SimpleTokenizer, ContractionTokenizer};
-    pub use crate::analyzer::{PassthroughAnalyzer, DictAnalyzer};
+    pub use crate::analyzer::{PassthroughAnalyzer, DictAnalyzer, PosTagger};
     pub use crate::checker::{SpellChecker, RuleChecker};
     pub use crate::dictionary::FstDictionary;
     pub use crate::lang_detect::{Language, LanguageDetector, DetectionResult};
+    pub use crate::filter::{
+        UrlFilter, CodeBlockFilter, QuotedTextFilter, DateFilter, NumberFilter,
+        default_filters, FilterBuilder,
+    };
 }
 
 #[cfg(test)]

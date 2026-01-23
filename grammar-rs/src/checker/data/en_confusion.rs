@@ -1,5 +1,5 @@
 //! Auto-generated confusion pairs for EN from LanguageTool
-//! Synced: 2026-01-23T11:27:32.099848303+00:00
+//! Synced: 2026-01-23T13:17:50.210249466+00:00
 //! DO NOT EDIT MANUALLY - Run `cargo run --bin sync-lt` to update
 //!
 //! Source: LanguageTool confusion_sets.txt

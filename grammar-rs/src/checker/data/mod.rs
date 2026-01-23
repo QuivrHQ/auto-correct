@@ -57,9 +57,13 @@ pub use fr_pattern_tests::{
 // Style rules (wordiness/redundancy)
 // ═══════════════════════════════════════════════════════════════════════════════
 pub mod en_style;
+pub mod fr_style;
 pub use en_style::{
     get_en_redundancy_rules, get_en_style_phrases, get_en_wordiness_rules, StyleCategory,
     StyleRule, EN_STYLE_RULES,
+};
+pub use fr_style::{
+    get_fr_redundancy_rules, get_fr_style_phrases, get_fr_wordiness_rules, FR_STYLE_RULES,
 };
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -111,3 +115,24 @@ pub mod fr_synonyms;
 pub use en_synonyms::{get_en_synonyms, SynonymEntry, EN_SYNONYM_RULES};
 pub use fr_synonyms::{get_fr_synonyms, FR_SYNONYM_RULES};
 // Note: SynonymEntry is re-exported from en_synonyms only to avoid conflict
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// POS pattern rules (require POS tagging)
+// ═══════════════════════════════════════════════════════════════════════════════
+pub mod en_pos_patterns;
+pub mod fr_pos_patterns;
+pub use en_pos_patterns::{create_en_pos_pattern_checker, EN_POS_PATTERN_RULES};
+pub use fr_pos_patterns::{create_fr_pos_pattern_checker, FR_POS_PATTERN_RULES};
+pub mod en_confusion_extended;
+pub mod en_uncountable;
+pub mod en_partlycountable;
+pub mod en_proper_nouns;
+pub mod en_compounds;
+pub mod en_multiwords;
+pub mod en_spelling;
+pub mod en_ignore;
+pub mod fr_compounds;
+pub mod fr_multiwords;
+pub mod fr_hyphenated;
+pub mod fr_spelling;
+pub mod fr_ignore;
