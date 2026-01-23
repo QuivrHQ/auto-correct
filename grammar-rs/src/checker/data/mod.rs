@@ -148,6 +148,8 @@ pub mod en_numbers;
 
 pub use en_word_definitions::{WordDefinition, EN_WORD_DEFINITIONS, get_en_word_definition};
 
+pub use en_prohibit::{EN_PROHIBIT, is_en_prohibit};
+
 pub use en_us_gb::{UsGbMapping, EN_US_GB_MAPPINGS, us_to_gb, gb_to_us, is_us_spelling, is_gb_spelling};
 
 pub use en_confusion_l2_de::{L2ConfusionPair as L2ConfusionPairDe, EN_L2_DE_CONFUSION_PAIRS, get_en_l2_de_confusion};

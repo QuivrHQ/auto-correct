@@ -12,6 +12,7 @@ mod context_checker;
 mod pos_pattern_checker;
 mod uncountable_checker;
 mod compound_checker;
+mod prohibit_checker;
 
 pub use spell::SpellChecker;
 pub use rules::{
@@ -100,3 +101,4 @@ pub use context_checker::ContextChecker;
 pub use pos_pattern_checker::{PosPatternChecker, PosPatternRule, PosPatternElement};
 pub use uncountable_checker::UncountableNounChecker;
 pub use compound_checker::CompoundWordChecker;
+pub use prohibit_checker::ProhibitChecker;
