@@ -1,8 +1,10 @@
 # Grammar-RS: Features Manquantes
 
-> **État actuel:** ~70-80% de parité fonctionnelle avec LanguageTool
+> **État actuel:** ~85% de parité fonctionnelle avec LanguageTool
 >
 > **Performance:** grammar-rs ~9ms vs LanguageTool ~1.4s (~150x plus rapide)
+>
+> **Dernière mise à jour:** Pipeline FR complété, ProhibitChecker ajouté
 
 ---
 
@@ -42,24 +44,22 @@
 
 ---
 
-## 3. Pipeline Français Incomplet - 🔶 Partiel
+## 3. Pipeline Français - ✅ COMPLÉTÉ
 
-**Description:** Le pipeline FR n'intègre pas tous les checkers disponibles.
-
-**État:** Données générées mais non intégrées dans le pipeline API FR.
+**Description:** Le pipeline FR intègre maintenant les checkers principaux.
 
 | Checker | Données | Pipeline EN | Pipeline FR |
 |---------|---------|-------------|-------------|
-| PosPatternChecker | 25 règles FR | ✅ | ❌ |
-| StyleChecker | 51 règles FR | ✅ | ❌ |
-| CompoundWordChecker | 1,346 règles FR | ✅ | ❌ |
-| CoherencyChecker | - | ✅ | ❌ |
-| DiacriticsChecker | - | ✅ | ❌ |
-| ContractionChecker | - | ✅ | ❌ |
+| PosPatternChecker | 25 règles FR | ✅ | ✅ |
+| StyleChecker | 51 règles FR | ✅ | ✅ |
+| CompoundWordChecker | 1,345 règles FR | ✅ | ✅ |
+| CoherencyChecker | EN only | ✅ | N/A |
+| DiacriticsChecker | EN only | ✅ | N/A |
+| ContractionChecker | EN only | ✅ | N/A |
 
-**Action requise:** Ajouter les checkers au pipeline FR dans `src/bin/api/main.rs`
+**Note:** CoherencyChecker, DiacriticsChecker, ContractionChecker sont spécifiques EN.
 
-**Priorité:** HAUTE
+**Priorité:** ~~HAUTE~~ TERMINÉ
 
 ---
 
@@ -127,16 +127,15 @@
 
 ---
 
-## 8. Prohibited Words - 🔶 Données non intégrées
+## 8. Prohibited Words - ✅ COMPLÉTÉ
 
 **Description:** Mots/patterns à signaler systématiquement.
 
-**État:** Données extraites (`en_prohibit.rs`), non intégrées.
+**État:** `ProhibitChecker` intégré au pipeline EN (330 mots).
 
-**Sources LT:**
-- `languagetool/org/languagetool/resource/en/prohibit.txt`
+**Exemples:** "Christoper" → "Christopher", "GDPR-complaint" → "GDPR-compliant"
 
-**Priorité:** BASSE
+**Priorité:** ~~BASSE~~ TERMINÉ
 
 ---
 
@@ -152,11 +151,13 @@
 
 ## Résumé
 
-| Catégorie | Features | Priorité |
-|-----------|----------|----------|
-| Non implémenté | Disambiguation, N-gram | BASSE |
-| Partiel (pipeline) | FR checkers | HAUTE |
-| Données non intégrées | L2 confusion, Spelling, Proper nouns, Multiwords, Prohibit, Numbers | MOYENNE/BASSE |
+| Catégorie | Features | Priorité | État |
+|-----------|----------|----------|------|
+| Complété | FR pipeline, ProhibitChecker | - | ✅ |
+| Non implémenté | Disambiguation, N-gram | BASSE | Complexe |
+| Données auxiliaires | L2 confusion, Spelling, Proper nouns, Multiwords, Numbers | BASSE | POS/contexte requis |
+
+**Note:** Les items restants nécessitent soit du POS tagging avancé (multiwords, numbers), soit des modèles n-gram (L2 confusion), soit un spell checker complet (spelling, proper nouns).
 
 ---
 
