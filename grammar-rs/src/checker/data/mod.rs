@@ -159,3 +159,11 @@ pub use en_confusion_l2_fr::{L2ConfusionPair as L2ConfusionPairFr, EN_L2_FR_CONF
 pub use en_confusion_l2_nl::{L2ConfusionPair as L2ConfusionPairNl, EN_L2_NL_CONFUSION_PAIRS, get_en_l2_nl_confusion};
 
 pub use en_added::{PosTaggedWord, EN_ADDED_WORDS, get_en_added_word};
+// ═══════════════════════════════════════════════════════════════════════════════
+// Antipatterns (exceptions to pattern rules)
+// ═══════════════════════════════════════════════════════════════════════════════
+pub mod en_antipatterns;
+pub mod fr_antipatterns;
+// Re-export types from en_antipatterns only, use FR_ANTIPATTERNS data directly
+pub use en_antipatterns::{Antipattern, AntipatternToken, EN_ANTIPATTERNS, get_en_antipatterns};
+pub use fr_antipatterns::{FR_ANTIPATTERNS, get_fr_antipatterns};

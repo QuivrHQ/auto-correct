@@ -188,6 +188,35 @@ struct PosTaggedWord {
     pos_tag: String,
 }
 
+#[derive(Debug, Clone)]
+struct AntipatternToken {
+    text: Option<String>,
+    regexp: Option<String>,
+    inflected: bool,
+    negation: bool,
+    postag: Option<String>,
+    skip: Option<i32>,
+}
+
+impl Default for AntipatternToken {
+    fn default() -> Self {
+        AntipatternToken {
+            text: None,
+            regexp: None,
+            inflected: false,
+            negation: false,
+            postag: None,
+            skip: None,
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+struct Antipattern {
+    rule_id: String,
+    tokens: Vec<AntipatternToken>,
+}
+
 #[derive(Debug, Default)]
 struct SyncStats {
     grammar_rules: usize,
@@ -225,6 +254,8 @@ struct SyncStats {
     confusion_l2_nl: usize,
     added_words: usize,
     numbers_words: usize,
+    // Phase 5
+    antipatterns: usize,
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -284,6 +315,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         total_stats.confusion_l2_nl += stats.confusion_l2_nl;
         total_stats.added_words += stats.added_words;
         total_stats.numbers_words += stats.numbers_words;
+        // Phase 5
+        total_stats.antipatterns += stats.antipatterns;
     }
 
     println!("\n{}", "=".repeat(70));
@@ -346,6 +379,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!(
         "  Added words: {} | Numbers: {}",
         total_stats.added_words, total_stats.numbers_words
+    );
+    // Phase 5 stats
+    println!(
+        "  Antipatterns: {}",
+        total_stats.antipatterns
     );
     println!("{}", "=".repeat(70));
 
@@ -1015,6 +1053,23 @@ fn sync_language(lt_path: &Path, lang: &str) -> Result<SyncStats, Box<dyn std::e
         if !words.is_empty() {
             let code = generate_word_list_file(&words, lang, "numbers", "Number words (one, two, three, etc.)");
             let output_path = output_dir.join(format!("{}_numbers.rs", lang));
+            fs::write(&output_path, code)?;
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════════
+    // Phase 5: Antipatterns from grammar.xml
+    // ═══════════════════════════════════════════════════════════════════════════════
+
+    // 26. Sync antipatterns from grammar.xml -> exceptions to pattern rules
+    if grammar_path.exists() {
+        let antipatterns = parse_antipatterns(&grammar_path)?;
+        stats.antipatterns = antipatterns.len();
+        println!("   antipatterns: {} extracted from grammar.xml", stats.antipatterns);
+
+        if !antipatterns.is_empty() {
+            let code = generate_antipatterns_file(&antipatterns, lang);
+            let output_path = output_dir.join(format!("{}_antipatterns.rs", lang));
             fs::write(&output_path, code)?;
         }
     }
@@ -2915,6 +2970,14 @@ fn update_data_mod(output_dir: &Path, lang: &str) -> Result<(), Box<dyn std::err
         content.push_str(&format!("{}\n", numbers_mod));
     }
 
+    // Phase 5 modules
+    let antipatterns_mod = format!("pub mod {}_antipatterns;", lang);
+    let antipatterns_exists = output_dir.join(format!("{}_antipatterns.rs", lang)).exists();
+
+    if antipatterns_exists && !content.contains(&antipatterns_mod) {
+        content.push_str(&format!("{}\n", antipatterns_mod));
+    }
+
     // Add re-exports if not present
     if patterns_exists {
         let pattern_export = format!(
@@ -3158,6 +3221,19 @@ fn update_data_mod(output_dir: &Path, lang: &str) -> Result<(), Box<dyn std::err
             lang
         );
         if !content.contains(&format!("{}_added::", lang)) {
+            content.push_str(&format!("\n{}\n", export));
+        }
+    }
+
+    // Phase 5: Antipatterns re-export
+    if antipatterns_exists {
+        let export = format!(
+            "pub use {}_antipatterns::{{Antipattern, AntipatternToken, {}_ANTIPATTERNS, get_{}_antipatterns}};",
+            lang,
+            lang.to_uppercase(),
+            lang
+        );
+        if !content.contains(&format!("{}_antipatterns::", lang)) {
             content.push_str(&format!("\n{}\n", export));
         }
     }
@@ -4901,6 +4977,280 @@ fn generate_pos_tagged_words_file(words: &[PosTaggedWord], lang: &str) -> String
         "/// Get POS tag for an added word (case-insensitive)\n\
          pub fn get_{}_added_word(word: &str) -> Option<&'static PosTaggedWord> {{\n\
          \t{}_ADDED_WORD_LOOKUP.get(&word.to_lowercase()).copied()\n\
+         }}\n",
+        lang.to_lowercase(),
+        lang.to_uppercase()
+    ));
+
+    output
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Phase 5: Parser - antipatterns from grammar.xml
+// ═══════════════════════════════════════════════════════════════════════════════
+
+fn parse_antipatterns(path: &Path) -> Result<Vec<Antipattern>, Box<dyn std::error::Error>> {
+    let content = fs::read_to_string(path)?;
+    let mut reader = Reader::from_str(&content);
+    reader.trim_text(true);
+
+    let mut antipatterns = Vec::new();
+    let mut buf = Vec::new();
+
+    let mut current_rule_id = String::new();
+    let mut in_rule = false;
+    let mut in_antipattern = false;
+    let mut current_antipattern_tokens: Vec<AntipatternToken> = Vec::new();
+    let mut current_token: Option<AntipatternToken> = None;
+    let mut in_token = false;
+    let mut text_buffer = String::new();
+
+    loop {
+        match reader.read_event_into(&mut buf) {
+            Ok(Event::Start(ref e)) => {
+                let name = String::from_utf8_lossy(e.name().as_ref()).to_string();
+
+                match name.as_str() {
+                    "rule" => {
+                        let id = get_attr(e, "id").unwrap_or_default();
+                        if !id.is_empty() {
+                            current_rule_id = id;
+                            in_rule = true;
+                        }
+                    }
+                    "antipattern" if in_rule => {
+                        in_antipattern = true;
+                        current_antipattern_tokens.clear();
+                    }
+                    "token" if in_antipattern => {
+                        let mut token = AntipatternToken::default();
+                        token.inflected = get_attr(e, "inflected")
+                            .map(|v| v == "yes")
+                            .unwrap_or(false);
+                        token.negation = get_attr(e, "negate")
+                            .map(|v| v == "yes")
+                            .unwrap_or(false);
+                        token.postag = get_attr(e, "postag");
+                        token.regexp = get_attr(e, "regexp");
+                        token.skip = get_attr(e, "skip")
+                            .and_then(|v| v.parse().ok());
+                        current_token = Some(token);
+                        in_token = true;
+                        text_buffer.clear();
+                    }
+                    _ => {}
+                }
+            }
+            Ok(Event::End(ref e)) => {
+                let name = String::from_utf8_lossy(e.name().as_ref()).to_string();
+
+                match name.as_str() {
+                    "rule" => {
+                        in_rule = false;
+                        current_rule_id.clear();
+                    }
+                    "antipattern" if in_antipattern => {
+                        // Save the antipattern if it has valid tokens
+                        if !current_antipattern_tokens.is_empty() && !current_rule_id.is_empty() {
+                            // Only keep simple antipatterns (2-4 tokens, no complex features)
+                            let is_simple = current_antipattern_tokens.len() >= 2
+                                && current_antipattern_tokens.len() <= 4
+                                && current_antipattern_tokens.iter().all(|t| {
+                                    // Must have text or regexp
+                                    (t.text.is_some() || t.regexp.is_some())
+                                        // No skip (complex matching)
+                                        && t.skip.is_none()
+                                        // No postag-only tokens
+                                        && !(t.text.is_none() && t.regexp.is_none() && t.postag.is_some())
+                                });
+
+                            if is_simple {
+                                antipatterns.push(Antipattern {
+                                    rule_id: current_rule_id.clone(),
+                                    tokens: current_antipattern_tokens.clone(),
+                                });
+                            }
+                        }
+                        in_antipattern = false;
+                        current_antipattern_tokens.clear();
+                    }
+                    "token" if in_token && in_antipattern => {
+                        if let Some(mut token) = current_token.take() {
+                            if !text_buffer.is_empty() {
+                                token.text = Some(text_buffer.clone());
+                            }
+                            current_antipattern_tokens.push(token);
+                        }
+                        in_token = false;
+                    }
+                    _ => {}
+                }
+            }
+            Ok(Event::Text(e)) => {
+                let text = e.unescape().unwrap_or_default().to_string();
+                if in_token && in_antipattern {
+                    text_buffer.push_str(&text);
+                }
+            }
+            Ok(Event::Empty(ref e)) => {
+                let name = String::from_utf8_lossy(e.name().as_ref()).to_string();
+                if name == "token" && in_antipattern {
+                    let mut token = AntipatternToken::default();
+                    token.inflected = get_attr(e, "inflected")
+                        .map(|v| v == "yes")
+                        .unwrap_or(false);
+                    token.negation = get_attr(e, "negate")
+                        .map(|v| v == "yes")
+                        .unwrap_or(false);
+                    token.postag = get_attr(e, "postag");
+                    token.regexp = get_attr(e, "regexp");
+                    token.skip = get_attr(e, "skip")
+                        .and_then(|v| v.parse().ok());
+                    current_antipattern_tokens.push(token);
+                }
+            }
+            Ok(Event::Eof) => break,
+            Err(e) => {
+                eprintln!("Error parsing XML at position {}: {:?}", reader.buffer_position(), e);
+                break;
+            }
+            _ => {}
+        }
+        buf.clear();
+    }
+
+    // Deduplicate antipatterns (same rule_id + tokens)
+    antipatterns.sort_by(|a, b| {
+        a.rule_id.cmp(&b.rule_id)
+            .then_with(|| {
+                let a_tokens: Vec<_> = a.tokens.iter().map(|t| t.text.as_deref().unwrap_or("")).collect();
+                let b_tokens: Vec<_> = b.tokens.iter().map(|t| t.text.as_deref().unwrap_or("")).collect();
+                a_tokens.cmp(&b_tokens)
+            })
+    });
+
+    Ok(antipatterns)
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Phase 5: Generator - antipatterns
+// ═══════════════════════════════════════════════════════════════════════════════
+
+fn generate_antipatterns_file(antipatterns: &[Antipattern], lang: &str) -> String {
+    let mut output = String::new();
+    let timestamp = chrono::Utc::now().to_rfc3339();
+
+    output.push_str(&format!(
+        "//! Auto-generated antipatterns for {} from LanguageTool\n\
+         //! Synced: {}\n\
+         //! Total antipatterns: {}\n\
+         //! DO NOT EDIT MANUALLY - Run `cargo run --bin sync-lt` to update\n\
+         //!\n\
+         //! Source: LanguageTool grammar.xml\n\
+         //! License: LGPL 2.1+\n\
+         //!\n\
+         //! Antipatterns are exceptions to grammar rules.\n\
+         //! When text matches an antipattern, the rule should NOT fire.\n\n",
+        lang.to_uppercase(),
+        timestamp,
+        antipatterns.len()
+    ));
+
+    // Only define structs for EN, other languages import from en_antipatterns
+    if lang == "en" {
+        // Define the token struct
+        output.push_str("/// A token in an antipattern\n");
+        output.push_str("#[derive(Debug, Clone)]\n");
+        output.push_str("pub struct AntipatternToken {\n");
+        output.push_str("    /// Literal text to match (case-insensitive)\n");
+        output.push_str("    pub text: Option<&'static str>,\n");
+        output.push_str("    /// Regex pattern to match\n");
+        output.push_str("    pub regexp: Option<&'static str>,\n");
+        output.push_str("    /// Whether to match inflected forms\n");
+        output.push_str("    pub inflected: bool,\n");
+        output.push_str("}\n\n");
+
+        // Define the antipattern struct
+        output.push_str("/// An antipattern (exception to a rule)\n");
+        output.push_str("#[derive(Debug, Clone)]\n");
+        output.push_str("pub struct Antipattern {\n");
+        output.push_str("    /// The rule ID this antipattern applies to\n");
+        output.push_str("    pub rule_id: &'static str,\n");
+        output.push_str("    /// The token sequence that should NOT trigger the rule\n");
+        output.push_str("    pub tokens: &'static [AntipatternToken],\n");
+        output.push_str("}\n\n");
+    } else {
+        // Import types from en_antipatterns
+        output.push_str("use super::en_antipatterns::{Antipattern, AntipatternToken};\n\n");
+    }
+
+    // Generate static token arrays for each antipattern
+    for (idx, ap) in antipatterns.iter().enumerate() {
+        output.push_str(&format!(
+            "static ANTIPATTERN_{}_TOKENS: &[AntipatternToken] = &[\n",
+            idx
+        ));
+        for token in &ap.tokens {
+            let text = match &token.text {
+                Some(t) => format!("Some(\"{}\")", escape_string(&t.to_lowercase())),
+                None => "None".to_string(),
+            };
+            let regexp = match &token.regexp {
+                Some(r) => format!("Some(\"{}\")", escape_string(r)),
+                None => "None".to_string(),
+            };
+            output.push_str(&format!(
+                "    AntipatternToken {{ text: {}, regexp: {}, inflected: {} }},\n",
+                text, regexp, token.inflected
+            ));
+        }
+        output.push_str("];\n");
+    }
+    output.push('\n');
+
+    // Generate the main array
+    output.push_str(&format!(
+        "/// Antipatterns for {} (sorted by rule_id)\n",
+        lang.to_uppercase()
+    ));
+    output.push_str(&format!("/// Total: {} antipatterns\n", antipatterns.len()));
+    output.push_str(&format!(
+        "pub static {}_ANTIPATTERNS: &[Antipattern] = &[\n",
+        lang.to_uppercase()
+    ));
+
+    for (idx, ap) in antipatterns.iter().enumerate() {
+        output.push_str(&format!(
+            "    Antipattern {{ rule_id: \"{}\", tokens: ANTIPATTERN_{}_TOKENS }},\n",
+            escape_string(&ap.rule_id),
+            idx
+        ));
+    }
+
+    output.push_str("];\n\n");
+
+    // Build lookup map by rule_id
+    output.push_str("use std::collections::HashMap;\n");
+    output.push_str("use std::sync::LazyLock;\n\n");
+
+    output.push_str(&format!(
+        "/// Lookup antipatterns by rule ID\n\
+         pub static {}_ANTIPATTERNS_BY_RULE: LazyLock<HashMap<&'static str, Vec<&'static Antipattern>>> = LazyLock::new(|| {{\n\
+         \tlet mut map: HashMap<&'static str, Vec<&'static Antipattern>> = HashMap::new();\n\
+         \tfor ap in {}_ANTIPATTERNS {{\n\
+         \t\tmap.entry(ap.rule_id).or_default().push(ap);\n\
+         \t}}\n\
+         \tmap\n\
+         }});\n\n",
+        lang.to_uppercase(),
+        lang.to_uppercase()
+    ));
+
+    // Generate lookup function
+    output.push_str(&format!(
+        "/// Get antipatterns for a rule ID\n\
+         pub fn get_{}_antipatterns(rule_id: &str) -> Option<&'static Vec<&'static Antipattern>> {{\n\
+         \t{}_ANTIPATTERNS_BY_RULE.get(rule_id)\n\
          }}\n",
         lang.to_lowercase(),
         lang.to_uppercase()
