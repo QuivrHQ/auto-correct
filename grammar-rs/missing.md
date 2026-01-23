@@ -110,32 +110,36 @@ Pipeline::new(
 
 ---
 
-## 3. Hunspell / Morphologie (0% implémenté)
+## 3. Hunspell / Morphologie ⏸️ DIFFÉRÉ
 
 ### Description
 Spell-checking morphologique avec lemmatisation et suggestions intelligentes.
 
-### Capacités manquantes
-- Détection fautes d'orthographe (typos)
-- Suggestions basées sur la distance d'édition
-- Lemmatisation (running → run)
-- Formes fléchies (run, runs, ran, running)
+### Décision
+**Différé** - Hunspell nécessite des dépendances système (libhunspell).
+LanguageTool utilise Morfologik (FST) pour l'anglais, pas Hunspell.
+
+### Alternatives disponibles
+- **SpellChecker existant:** Utilise FST/HashSet avec edit distance
+- **Données extraites:**
+  - `EN_COMMON_WORDS`: ~10,000 mots communs
+  - `EN_IGNORE`: ~11,000 mots à ignorer
+  - `EN_SPELLING`: 485 mots additionnels
+  - `EN_ADDED_WORDS`: 441 mots avec POS tags
+
+### Approche recommandée
+1. Construire un dictionnaire FST à partir des listes existantes
+2. Intégrer SymSpell (Rust pure) pour suggestions rapides
+3. Utiliser les confusion pairs pour corrections contextuelles
 
 ### Fichiers dictionnaires LanguageTool
 ```
 languagetool/org/languagetool/resource/en/
 ├── hunspell/
-│   ├── en_US.dic    # ~60,000 mots
-│   ├── en_US.aff    # Règles affixes
-│   ├── en_GB.dic
-│   └── en_GB.aff
-└── spelling.txt     # Exceptions orthographe
+│   ├── spelling.txt      # 472 mots supplémentaires
+│   └── spelling_*.txt    # Variantes régionales
+└── spelling_correction_model.bin  # Modèle ML (non utilisé)
 ```
-
-### Implémentation requise
-1. Ajouter dépendance `hunspell-rs = "0.4"`
-2. Créer `HunspellChecker`
-3. Synchroniser les dictionnaires .dic/.aff
 
 ---
 
@@ -205,20 +209,32 @@ Utiliser les confusion pairs avec scoring de fréquence plus léger.
 
 ---
 
-## 7. Style rules (15% implémenté)
+## 7. Style rules ✅ COMPLET
 
 ### État actuel
-- ~30 règles de style
-- Wordiness, passive voice, clichés basiques
+- **1,398 règles de style** (692 wordiness + 706 redundancy)
+- `StyleChecker` intégré dans le pipeline API
+- Détection phrases verbeuses et redondantes
 
-### Manquants
-- Détection de jargon
+### Fichiers générés
+- `src/checker/data/en_style.rs` (1398 règles)
+- `src/checker/style_checker.rs` (implémentation Aho-Corasick)
+
+### Exemples de détection
+- "a number of" → "several", "some"
+- "added bonus" → "bonus"
+- "advance notice" → "notice"
+- "absolutely essential" → "essential"
+
+### Capacités avancées (non implémentées)
+- Détection passive voice (nécessite POS tagging avancé)
 - Readability scoring
 - Sentence variety analysis
-- Gender-neutral language suggestions
 
 ### Fichiers sources
-- `languagetool/org/languagetool/rules/en/style.xml`
+- `languagetool/rules/en/wordiness.txt` ✅ synced
+- `languagetool/rules/en/redundancies.txt` ✅ synced
+- `languagetool/rules/en/style.xml` (patterns complexes, POS-based)
 
 ---
 
@@ -228,10 +244,10 @@ Utiliser les confusion pairs avec scoring de fréquence plus léger.
 |----------|-------|----------------|----------------|------|
 | HAUTE | 5 | Antipatterns | 25% → 35% | ✅ COMPLET |
 | HAUTE | 6 | Règles conditionnelles / POS | 35% → 40% | ✅ INTÉGRÉ |
-| MOYENNE | 7 | Hunspell | 40% → 55% | ❌ À faire |
+| MOYENNE | 7 | Hunspell | 40% → 55% | ⏸️ DIFFÉRÉ |
 | MOYENNE | 8 | Confusion pairs natifs | 55% → 65% | ✅ COMPLET |
 | BASSE | 9 | Disambiguation | 65% → 70% | ❌ À faire |
-| BASSE | 10 | Style étendu | 70% → 75% | ❌ À faire |
+| BASSE | 10 | Style étendu | 70% → 75% | ✅ COMPLET |
 
 ---
 
