@@ -642,6 +642,7 @@ dependencies = [
  "memmap2",
  "moka",
  "quick-xml",
+ "rayon",
  "regex",
  "reqwest",
  "serde",

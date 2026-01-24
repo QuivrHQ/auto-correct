@@ -41,17 +41,9 @@ fn convert_match(m: GrsMatch, text: &str) -> LTMatch {
     let context_start = m.span.start.saturating_sub(20);
     let context_end = (m.span.end + 20).min(text.len());
 
-    // Ensure we don't split UTF-8 characters
-    let context_start = text[..context_start]
-        .char_indices()
-        .last()
-        .map(|(i, _)| i)
-        .unwrap_or(0);
-    let context_end = text[context_end..]
-        .char_indices()
-        .next()
-        .map(|(i, _)| context_end + i)
-        .unwrap_or(text.len());
+    // Ensure we don't split UTF-8 characters by finding nearest char boundaries
+    let context_start = floor_char_boundary(text, context_start);
+    let context_end = ceil_char_boundary(text, context_end);
 
     let context_text = &text[context_start..context_end];
 
@@ -164,4 +156,26 @@ fn language_name(code: &str) -> &'static str {
         "auto" => "Auto-detected",
         _ => "Unknown",
     }
+}
+
+/// Round down to the nearest UTF-8 character boundary
+fn floor_char_boundary(s: &str, mut index: usize) -> usize {
+    if index > s.len() {
+        return s.len();
+    }
+    while index > 0 && !s.is_char_boundary(index) {
+        index -= 1;
+    }
+    index
+}
+
+/// Round up to the nearest UTF-8 character boundary
+fn ceil_char_boundary(s: &str, mut index: usize) -> usize {
+    if index >= s.len() {
+        return s.len();
+    }
+    while index < s.len() && !s.is_char_boundary(index) {
+        index += 1;
+    }
+    index
 }

@@ -45,6 +45,19 @@ async fn main() {
 
     tracing::info!("Starting grammar-rs API server...");
 
+    // Configure rayon thread pool for CPU parallelism
+    let max_cpus = std::env::var("MAX_CPUS")
+        .ok()
+        .and_then(|s| s.parse::<usize>().ok())
+        .unwrap_or(0); // 0 = use all CPUs
+
+    let actual_cpus = grammar_rs::core::pipeline::num_cpus();
+    let threads = if max_cpus == 0 { actual_cpus } else { max_cpus.min(actual_cpus) };
+
+    grammar_rs::core::pipeline::init_thread_pool(threads);
+    tracing::info!("Rayon thread pool: {} threads (MAX_CPUS={})", threads,
+        if max_cpus == 0 { "auto".to_string() } else { max_cpus.to_string() });
+
     // Pre-warm lazy statics for faster first request
     tracing::info!("Pre-warming lazy statics...");
     grammar_rs::warm_up();

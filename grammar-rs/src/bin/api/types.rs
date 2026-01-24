@@ -23,7 +23,7 @@ pub struct CheckRequest {
 }
 
 /// Response from /v2/check endpoint
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct LanguageToolResponse {
     pub software: Software,
     pub language: LanguageInfo,
@@ -31,7 +31,7 @@ pub struct LanguageToolResponse {
 }
 
 /// Software information
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct Software {
     pub name: String,
     pub version: String,
@@ -40,7 +40,7 @@ pub struct Software {
 }
 
 /// Language information
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct LanguageInfo {
     pub code: String,
     pub name: String,
@@ -49,7 +49,7 @@ pub struct LanguageInfo {
 }
 
 /// Detected language information
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct DetectedLanguage {
     pub code: String,
     pub name: String,
@@ -57,7 +57,7 @@ pub struct DetectedLanguage {
 }
 
 /// A grammar/spelling error match
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct LTMatch {
     pub message: String,
     #[serde(rename = "shortMessage")]
@@ -70,27 +70,27 @@ pub struct LTMatch {
 }
 
 /// A suggested replacement
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct Replacement {
     pub value: String,
 }
 
 /// Information about the rule that triggered the match
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct RuleInfo {
     pub id: String,
     pub category: Category,
 }
 
 /// Category of the rule
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct Category {
     pub id: String,
     pub name: String,
 }
 
 /// Context around the error
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct Context {
     pub text: String,
     pub offset: usize,
@@ -104,4 +104,22 @@ pub struct LanguageResponse {
     pub code: String,
     #[serde(rename = "longCode")]
     pub long_code: String,
+}
+
+/// Cache key for response caching
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub struct CacheKey {
+    pub text: String,
+    pub language: String,
+    pub mother_tongue: Option<String>,
+}
+
+impl CacheKey {
+    pub fn from_request(req: &CheckRequest, lang_code: &str) -> Self {
+        Self {
+            text: req.text.clone(),
+            language: lang_code.to_string(),
+            mother_tongue: req.mother_tongue.clone(),
+        }
+    }
 }

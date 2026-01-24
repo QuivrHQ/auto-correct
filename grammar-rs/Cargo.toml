@@ -7,7 +7,6 @@ license = "MIT"
 
 [features]
 default = []
-# parallel = ["rayon"]  # Activer quand rayon est ajouté
 # Enable auto-download of N-gram data from R2 (basic single-connection)
 ngram-download = ["dep:ureq", "dep:sha2"]
 # Enable fast parallel download with compression support
@@ -23,6 +22,7 @@ flate2 = "1.0"           # DEFLATE decompression for Lucene stored fields
 lz4_flex = "0.11"        # LZ4 decompression for Lucene 4.1 stored fields
 bincode = "1.3"          # Binary serialization for N-gram cache
 memmap2 = "0.9"          # Memory-mapped files for compact N-gram storage
+rayon = "1.10"           # Parallel iteration for multi-core CPU usage
 
 # Optional: N-gram auto-download from R2 (basic)
 ureq = { version = "2.9", optional = true }  # HTTP client for downloading

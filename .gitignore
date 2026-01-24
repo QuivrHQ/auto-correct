@@ -27,3 +27,6 @@ npm-debug.log*
 .env.local
 dist/**
 docker/load-tests/results/**
+
+# Grammar-RS N-gram data (31GB+ downloaded at runtime)
+grammar-rs/data/ngrams/

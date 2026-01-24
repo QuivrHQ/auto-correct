@@ -1,0 +1,50 @@
+# Build artifacts
+target/
+*.log
+
+# Data (downloaded at runtime via GRAMMAR_RS_AUTO_DOWNLOAD)
+# NOTE: Keep data/dictionaries/ for spell checker (small ~2MB)
+data/ngrams/
+data/*.bin
+
+# Cache
+.cache/
+
+# VCS
+.git/
+.gitignore
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Documentation (not needed in image)
+README.md
+missing.md
+CLAUDE.md
+ROADMAP.md
+DEPLOY.md
+
+# Tests and examples (not needed in image)
+tests/
+examples/
+# NOTE: benches/ must be included for Cargo.toml to parse correctly
+
+# Scripts (not needed in image)
+scripts/
+
+# Build-time binaries (not needed in runtime image)
+src/bin/build_dict.rs
+src/bin/sync_lt.rs
+src/bin/convert_lt_rules.rs
+src/bin/cli.rs
+
+# Fly.io
+fly.toml
+.dockerignore

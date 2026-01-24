@@ -6,7 +6,42 @@
 use super::filter::FilterChain;
 use super::traits::{Analyzer, Checker, GrammarChecker, Tokenizer};
 use super::CheckResult;
+use rayon::prelude::*;
 use std::sync::Arc;
+
+/// Initialize the rayon thread pool with a specific number of threads.
+/// Call this at application startup to limit CPU usage.
+///
+/// # Arguments
+/// * `num_threads` - Maximum number of threads to use (0 = use all available CPUs)
+///
+/// # Example
+/// ```
+/// use grammar_rs::core::pipeline::init_thread_pool;
+/// init_thread_pool(4); // Use max 4 CPUs
+/// ```
+///
+/// # Panics
+/// Panics if called more than once (rayon only allows one global pool initialization).
+pub fn init_thread_pool(num_threads: usize) {
+    let threads = if num_threads == 0 {
+        num_cpus()
+    } else {
+        num_threads
+    };
+
+    rayon::ThreadPoolBuilder::new()
+        .num_threads(threads)
+        .build_global()
+        .expect("Failed to initialize rayon thread pool");
+}
+
+/// Returns the number of CPUs available on this system.
+pub fn num_cpus() -> usize {
+    std::thread::available_parallelism()
+        .map(|p| p.get())
+        .unwrap_or(1)
+}
 
 /// Le pipeline principal - compose les étapes
 pub struct Pipeline {
@@ -65,35 +100,7 @@ impl GrammarChecker for Pipeline {
         // Étape 2: Analyze
         let analyzed = self.analyzer.analyze(tokens);
 
-        // Étape 3: Check (tous les checkers en parallèle potentiellement)
-        let mut result = CheckResult::new();
-        for checker in &self.checkers {
-            result.merge(checker.check(text, &analyzed));
-        }
-
-        // Étape 4: Filter out matches in masked regions
-        if let Some(ref masks) = masks {
-            result = result.filter_masked(masks);
-        }
-
-        // Nettoyer et trier
-        result.sort_and_dedupe();
-        result
-    }
-}
-
-// Version parallèle avec Rayon (pour plus tard)
-#[cfg(feature = "parallel")]
-impl Pipeline {
-    pub fn check_text_parallel(&self, text: &str) -> CheckResult {
-        use rayon::prelude::*;
-
-        // Find masked regions (if filters are configured)
-        let masks = self.filters.as_ref().map(|f| f.find_all_masks(text));
-
-        let tokens = self.tokenizer.tokenize(text);
-        let analyzed = self.analyzer.analyze(tokens);
-
+        // Étape 3: Check (tous les checkers en parallèle avec rayon)
         let results: Vec<CheckResult> = self
             .checkers
             .par_iter()
@@ -105,11 +112,12 @@ impl Pipeline {
             result.merge(r);
         }
 
-        // Filter out matches in masked regions
+        // Étape 4: Filter out matches in masked regions
         if let Some(ref masks) = masks {
             result = result.filter_masked(masks);
         }
 
+        // Nettoyer et trier
         result.sort_and_dedupe();
         result
     }

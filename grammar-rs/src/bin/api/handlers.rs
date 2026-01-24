@@ -39,11 +39,24 @@ pub async fn check_handler(
         (normalize_language(&req.language), 1.0)
     };
 
-    // Get appropriate pipeline
-    let pipeline = state.get_pipeline(&lang_code);
-    let text = req.text.clone();
+    // Create cache key
+    let cache_key = crate::types::CacheKey::from_request(&req, &lang_code);
 
-    // Run the check (spawn_blocking because pipeline is sync)
+    // Check cache first
+    if let Some(cached_response) = state.cache.get(&cache_key).await {
+        let elapsed = start.elapsed();
+        tracing::info!(
+            lang = %lang_code,
+            text_len = req.text.len(),
+            elapsed_ms = elapsed.as_millis(),
+            cache_hit = true,
+            "Check completed (cache hit)"
+        );
+        return Json((*cached_response).clone());
+    }
+
+    // Cache miss - compute result
+    let text = req.text.clone();
     let pipeline_clone = Arc::clone(if lang_code.starts_with("fr") {
         &state.fr_pipeline
     } else {
@@ -75,6 +88,10 @@ pub async fn check_handler(
     // Convert to LanguageTool format
     let response = convert_result(result, &req.text, &lang_code, confidence);
 
+    // Store in cache
+    let response_arc = Arc::new(response.clone());
+    state.cache.insert(cache_key, response_arc).await;
+
     let elapsed = start.elapsed();
     tracing::info!(
         lang = %lang_code,
@@ -82,7 +99,8 @@ pub async fn check_handler(
         matches = response.matches.len(),
         text_len = req.text.len(),
         elapsed_ms = elapsed.as_millis(),
-        "Check completed"
+        cache_hit = false,
+        "Check completed (cache miss)"
     );
 
     Json(response)

@@ -1,0 +1,37 @@
+app = 'grammar-rs-autocorrect'
+primary_region = 'cdg'
+
+[build]
+
+[env]
+  RUST_LOG = "info"
+  PORT = "8081"
+  GRAMMAR_RS_AUTO_DOWNLOAD = "1"
+  # Cache settings (matching LanguageTool config)
+  CACHE_SIZE = "10000"
+  CACHE_TTL_SECS = "900"
+
+[http_service]
+  internal_port = 8081
+  force_https = true
+  auto_stop_machines = false
+  auto_start_machines = true
+  min_machines_running = 1
+
+  [http_service.concurrency]
+    type = "requests"
+    soft_limit = 200
+    hard_limit = 250
+
+# Persistent volume for N-gram data (auto-downloaded on first run)
+# EN: ~23GB, FR: ~2GB
+# Download takes ~10-20 min on first startup
+[mounts]
+  source = "grammar_ngrams"
+  destination = "/app/data/ngrams"
+  initial_size = "30gb"
+
+[[vm]]
+  memory = '8gb'
+  cpu_kind = 'performance'
+  cpus = 4
