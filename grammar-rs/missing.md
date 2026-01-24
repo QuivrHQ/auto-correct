@@ -203,8 +203,11 @@ cargo run --bin sync-lt -- --extract-ngrams --language en
   - Références `\N` aux tokens matchés
   - Transformations regex (`regexp_match`/`regexp_replace`)
   - Conversion de casse (`alllower`, `startupper`, etc.)
+- 🔶 Unification (`<unify>`): **PARTIELLEMENT IMPLÉMENTÉ** (14 règles FR)
+  - Parser `<unify>` et `<feature>` dans sync-lt
+  - Validation genre/nombre dans DynamicPatternChecker
+  - Limitation: POS tagger ne fournit pas toujours genre+nombre complets
 - ⏸️ Transformations POS (`postag_replace`): non supporté (nécessite morphologie)
-- ⏸️ Unification (`<unify>`): non supporté (accord genre/nombre)
 
 **Couverture actuelle:**
 | Source | Règles FR | Règles EN | Couverture |
@@ -226,16 +229,7 @@ cargo run --bin sync-lt -- --extract-ngrams --language en
 
 **Fonctionnalités manquantes:**
 
-1. **Unification** (`<unify>`) - Accord genre/nombre:
-   ```xml
-   <unify>
-     <token><feature>gender</feature></token>
-     <token><feature>gender</feature></token>
-   </unify>
-   <!-- Vérifie que les tokens ont le même genre -->
-   ```
-
-2. **Transformations POS** (`postag_replace`):
+1. **Transformations POS** (`postag_replace`):
    ```xml
    <suggestion><match no="1" postag="V.*:3s" postag_replace="V.*:2s"/></suggestion>
    <!-- Nécessite un lemmatizer/morphological generator -->
@@ -251,7 +245,7 @@ cargo run --bin sync-lt -- --extract-ngrams --language en
 |-----------|----------|----------|------|
 | ✅ Complété | FR pipeline, ProhibitChecker, L2ConfusionChecker FR, SpellChecker, Proper Nouns, Disambig Skip, Numbers POS, DynamicPatternChecker, **Suggestions dynamiques** | - | Intégré |
 | 🔶 Partiel | Disambiguation/POS (skip patterns OK, contexte manquant) | BASSE | Skip patterns intégrés |
-| 🔶 Partiel | Complex Pattern Rules (regex/skip/suggestions OK, unification manquant) | MOYENNE | 3,006 règles intégrées |
+| 🔶 Partiel | Complex Pattern Rules (regex/skip/suggestions/unification OK, POS transform manquant) | MOYENNE | 3,006 règles + 14 unification |
 | ❌ Complexe | Disambiguation contextuelles | BASSE | Nécessite ML |
 | ⏸️ Différé | Multiwords | BASSE | Nécessite POS avancé |
 

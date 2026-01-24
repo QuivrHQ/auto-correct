@@ -77,6 +77,17 @@ pub enum SuggestionPart {
     },
 }
 
+/// Unification group for gender/number agreement checking
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UnificationGroup {
+    /// Features to unify (e.g., "gender", "number")
+    pub features: Vec<String>,
+    /// Token indices in the pattern that must have the same feature values
+    pub token_indices: Vec<usize>,
+    /// If true, tokens must NOT have the same features (negate="yes") - error case
+    pub negate: bool,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ComplexRule {
     pub id: String,
@@ -90,6 +101,9 @@ pub struct ComplexRule {
     /// Dynamic suggestions with <match> references
     #[serde(skip_serializing_if = "Vec::is_empty", default)]
     pub dynamic_suggestions: Vec<ComplexSuggestion>,
+    /// Unification groups for gender/number agreement
+    #[serde(skip_serializing_if = "Vec::is_empty", default)]
+    pub unification_groups: Vec<UnificationGroup>,
     #[serde(skip_serializing_if = "Vec::is_empty", default)]
     pub examples: Vec<ComplexExample>,
 }
@@ -212,6 +226,8 @@ struct CompiledRule {
     suggestions: Vec<String>,
     /// Dynamic suggestions with match references (kept as-is for runtime generation)
     dynamic_suggestions: Vec<ComplexSuggestion>,
+    /// Unification groups for gender/number agreement
+    unification_groups: Vec<UnificationGroup>,
 }
 
 impl CompiledRule {
@@ -235,6 +251,7 @@ impl CompiledRule {
             message: rule.message.clone(),
             suggestions: rule.suggestions.clone(),
             dynamic_suggestions: rule.dynamic_suggestions.clone(),
+            unification_groups: rule.unification_groups.clone(),
         })
     }
 }
@@ -251,6 +268,103 @@ fn convert_lt_postag_regex(pattern: &str) -> String {
         .replace(".", "\\.") // Escape dots (literal in LT)
         .replace("\\\\.", ".") // But .* means "any char" - convert back
         .replace(" ", "\\s+") // Spaces in French tags
+}
+
+/// Extract grammatical features (gender, number) from a French POS tag
+/// French POS tags use format like "J m s" (adjective masculine singular)
+/// - Position varies, but we look for: m/f/e (gender), s/p (number)
+fn extract_feature(postag: &str, feature: &str) -> Option<String> {
+    let parts: Vec<&str> = postag.split_whitespace().collect();
+    match feature {
+        "gender" => {
+            // m = masculine, f = feminine, e = epicene (both)
+            parts.iter().find(|&&p| p == "m" || p == "f" || p == "e").map(|&s| s.to_string())
+        }
+        "number" => {
+            // s = singular, p = plural
+            parts.iter().find(|&&p| p == "s" || p == "p").map(|&s| s.to_string())
+        }
+        "person" => {
+            // 1 = first, 2 = second, 3 = third (for verbs)
+            parts.iter().find(|&&p| p == "1" || p == "2" || p == "3" || p.ends_with("s") && p.len() == 2)
+                .map(|&s| s.to_string())
+        }
+        _ => None
+    }
+}
+
+/// Check if unification constraints are satisfied for matched tokens
+/// Returns true if the rule should fire (error detected), false otherwise
+fn check_unification(
+    matched_tokens: &[&AnalyzedToken],
+    unification_groups: &[UnificationGroup],
+) -> bool {
+    for group in unification_groups {
+        // Get the feature values for all tokens in the group
+        let mut feature_values: Vec<Vec<Option<String>>> = Vec::new();
+
+        for &token_idx in &group.token_indices {
+            if token_idx >= matched_tokens.len() {
+                continue;
+            }
+            let token = matched_tokens[token_idx];
+
+            // Get POS tag as string representation (e.g., "N m", "V inf", "J m s")
+            // Note: Our POS tagger doesn't always produce full gender/number info,
+            // so unification may not work for all rules until the tagger is improved.
+            let postag = token.pos.as_ref()
+                .map(|p| p.as_str().to_string())
+                .unwrap_or_default();
+
+            let values: Vec<Option<String>> = group.features.iter()
+                .map(|f| extract_feature(&postag, f))
+                .collect();
+            feature_values.push(values);
+        }
+
+        if feature_values.len() < 2 {
+            continue; // Need at least 2 tokens to compare
+        }
+
+        // Check if all tokens have the same values for each feature
+        let mut all_same = true;
+        for feature_idx in 0..group.features.len() {
+            let values: Vec<&Option<String>> = feature_values.iter()
+                .map(|v| &v[feature_idx])
+                .collect();
+
+            // Filter out None values and compare the rest
+            let defined_values: Vec<&String> = values.iter()
+                .filter_map(|v| v.as_ref())
+                .collect();
+
+            if defined_values.len() >= 2 {
+                let first = defined_values[0];
+                if !defined_values.iter().all(|v| *v == first) {
+                    all_same = false;
+                    break;
+                }
+            }
+        }
+
+        // negate=true means we're looking for DISAGREEMENT (the error case)
+        // If negate=true and features are different, rule should fire
+        // If negate=false and features are same, rule should fire
+        if group.negate {
+            // Looking for disagreement - if different, return true (fire rule)
+            if !all_same {
+                return true;
+            }
+        } else {
+            // Looking for agreement - if same, return true (fire rule)
+            if all_same {
+                return true;
+            }
+        }
+    }
+
+    // If there are no unification groups, or all checks passed, return true
+    unification_groups.is_empty()
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -496,14 +610,21 @@ impl Checker for DynamicPatternChecker {
                         continue;
                     }
 
-                    // Calculate span from first to last matched token
-                    let span_start = word_tokens[start].1.token.span.start;
-                    let span_end = word_tokens[end - 1].1.token.span.end;
-
-                    // Collect matched tokens for dynamic suggestion generation
+                    // Collect matched tokens
                     let matched_tokens: Vec<&AnalyzedToken> = (start..end)
                         .map(|i| word_tokens[i].1)
                         .collect();
+
+                    // Check unification constraints if present
+                    if !rule.unification_groups.is_empty() {
+                        if !check_unification(&matched_tokens, &rule.unification_groups) {
+                            continue; // Unification constraints not satisfied
+                        }
+                    }
+
+                    // Calculate span from first to last matched token
+                    let span_start = word_tokens[start].1.token.span.start;
+                    let span_end = word_tokens[end - 1].1.token.span.end;
 
                     // Generate suggestions: static first, then dynamic
                     let mut suggestions = rule.suggestions.clone();

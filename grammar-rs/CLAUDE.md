@@ -235,10 +235,11 @@ Supporte les fonctionnalités avancées de grammar.xml:
 - `skip` - gap matching (N tokens entre deux éléments)
 - `antipatterns` - exceptions aux règles
 - `<match no="N">` - suggestions dynamiques avec références aux tokens matchés
+- `<unify>` - validation genre/nombre (accord grammatical français)
 
 **Stats:**
 - EN: 2,161 règles complexes (599 avec suggestions dynamiques)
-- FR: 845 règles complexes (484 avec suggestions dynamiques)
+- FR: 845 règles complexes (484 avec suggestions dynamiques, 14 avec unification)
 - Total: 3,006 règles supplémentaires (en plus des patterns simples)
 
 **Fichiers:**
@@ -255,7 +256,11 @@ Supporte les fonctionnalités avancées de grammar.xml:
 - **Suggestions dynamiques:** Références `\N` converties en tokens matchés
 - **Transformations regex:** `regexp_match`/`regexp_replace` sur texte des tokens
 - **Conversion de casse:** `alllower`, `allupper`, `startlower`, `startupper`
+- **Unification (FR):** Validation accord genre/nombre via `<unify>` et `<feature>`
 - Génération automatique via `sync-lt.rs` (Phase 8)
+
+**Limitations connues:**
+- Unification: Dépend du POS tagger pour fournir genre/nombre complets
 
 **Exemples de règles supportées:**
 - `CONFUSION_EST_ET` (FR) - Confusion est/et avec contexte POS

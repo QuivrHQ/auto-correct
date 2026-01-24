@@ -9367,6 +9367,19 @@
     ],
     "message": "Le déterminant s'accorde avec le nom \"\\2\".",
     "suggestions": [],
+    "unification_groups": [
+      {
+        "features": [
+          "number",
+          "gender"
+        ],
+        "token_indices": [
+          0,
+          1
+        ],
+        "negate": true
+      }
+    ],
     "examples": [
       {
         "text": "Ils leur coupes les pattes.",
@@ -12438,6 +12451,19 @@
     ],
     "message": "\"\" et l'adjectif \"\\2\" ne semblent pas bien accordés.",
     "suggestions": [],
+    "unification_groups": [
+      {
+        "features": [
+          "number",
+          "gender"
+        ],
+        "token_indices": [
+          0,
+          1
+        ],
+        "negate": true
+      }
+    ],
     "examples": [
       {
         "text": "Ce continue reading.",
@@ -13208,6 +13234,19 @@
         ]
       }
     ],
+    "unification_groups": [
+      {
+        "features": [
+          "number",
+          "gender"
+        ],
+        "token_indices": [
+          0,
+          1
+        ],
+        "negate": true
+      }
+    ],
     "examples": [
       {
         "text": "Je dirais même deles retournécontre les tireurs.",
@@ -13462,6 +13501,21 @@
             "case_conversion": null
           }
         ]
+      }
+    ],
+    "unification_groups": [
+      {
+        "features": [
+          "number",
+          "gender"
+        ],
+        "token_indices": [
+          0,
+          1,
+          2,
+          3
+        ],
+        "negate": true
       }
     ],
     "examples": [
@@ -14271,6 +14325,19 @@
     ],
     "message": "\"\" et \"\\2\" ne semblent pas bien accordés.",
     "suggestions": [],
+    "unification_groups": [
+      {
+        "features": [
+          "number",
+          "gender"
+        ],
+        "token_indices": [
+          0,
+          1
+        ],
+        "negate": true
+      }
+    ],
     "examples": [
       {
         "text": "-Intriguant madame.",
@@ -15488,6 +15555,19 @@
     "antipatterns": [],
     "message": "\"\" et \"\\2\" ne semblent pas bien accordés.",
     "suggestions": [],
+    "unification_groups": [
+      {
+        "features": [
+          "number",
+          "gender"
+        ],
+        "token_indices": [
+          0,
+          1
+        ],
+        "negate": true
+      }
+    ],
     "examples": [
       {
         "text": "Hôtel pas cher Tunisie.",
@@ -16042,6 +16122,21 @@
         ]
       }
     ],
+    "unification_groups": [
+      {
+        "features": [
+          "number",
+          "gender"
+        ],
+        "token_indices": [
+          1,
+          2,
+          3,
+          4
+        ],
+        "negate": true
+      }
+    ],
     "examples": [
       {
         "text": "Son intervention n'est nipertinente, ni clair.",
@@ -16308,6 +16403,21 @@
             "case_conversion": null
           }
         ]
+      }
+    ],
+    "unification_groups": [
+      {
+        "features": [
+          "number",
+          "gender"
+        ],
+        "token_indices": [
+          0,
+          1,
+          2,
+          3
+        ],
+        "negate": true
       }
     ],
     "examples": [
@@ -57107,6 +57217,20 @@
     ],
     "message": "Vérifiez l'accord avec le participe passé précédent.",
     "suggestions": [],
+    "unification_groups": [
+      {
+        "features": [
+          "gender",
+          "number"
+        ],
+        "token_indices": [
+          2,
+          3,
+          4
+        ],
+        "negate": true
+      }
+    ],
     "examples": [
       {
         "text": "Il n'est pas transformé etchamboulés.",
@@ -109562,6 +109686,24 @@
         ]
       }
     ],
+    "unification_groups": [
+      {
+        "features": [
+          "gender",
+          "number"
+        ],
+        "token_indices": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6
+        ],
+        "negate": false
+      }
+    ],
     "examples": [
       {
         "text": "Elle a un chienunchat et un hamster.",
@@ -112916,6 +113058,20 @@
         ]
       }
     ],
+    "unification_groups": [
+      {
+        "features": [
+          "number",
+          "person"
+        ],
+        "token_indices": [
+          0,
+          1,
+          2
+        ],
+        "negate": false
+      }
+    ],
     "examples": [
       {
         "text": "Vas -tules regarder à la télévision ?",
@@ -115605,6 +115761,19 @@
             "case_conversion": null
           }
         ]
+      }
+    ],
+    "unification_groups": [
+      {
+        "features": [
+          "number",
+          "gender"
+        ],
+        "token_indices": [
+          0,
+          1
+        ],
+        "negate": true
       }
     ],
     "examples": [
@@ -124425,6 +124594,19 @@
             "case_conversion": null
           }
         ]
+      }
+    ],
+    "unification_groups": [
+      {
+        "features": [
+          "number",
+          "gender"
+        ],
+        "token_indices": [
+          0,
+          1
+        ],
+        "negate": false
       }
     ],
     "examples": [
@@ -144811,6 +144993,20 @@
             "case_conversion": null
           }
         ]
+      }
+    ],
+    "unification_groups": [
+      {
+        "features": [
+          "person",
+          "tense"
+        ],
+        "token_indices": [
+          1,
+          2,
+          3
+        ],
+        "negate": false
       }
     ],
     "examples": [

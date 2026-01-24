@@ -240,6 +240,17 @@ struct ComplexAntipattern {
     tokens: Vec<ComplexPatternToken>,
 }
 
+/// Unification group for gender/number agreement checking
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+struct UnificationGroup {
+    /// Features to unify (e.g., "gender", "number")
+    features: Vec<String>,
+    /// Token indices in the pattern that must have the same feature values
+    token_indices: Vec<usize>,
+    /// If true, tokens must NOT have the same features (negate="yes")
+    negate: bool,
+}
+
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 struct ComplexSuggestion {
     /// Static text parts and match references
@@ -279,6 +290,9 @@ struct ComplexRule {
     /// Dynamic suggestions with <match> references
     #[serde(skip_serializing_if = "Vec::is_empty", default)]
     dynamic_suggestions: Vec<ComplexSuggestion>,
+    /// Unification groups for gender/number agreement
+    #[serde(skip_serializing_if = "Vec::is_empty", default)]
+    unification_groups: Vec<UnificationGroup>,
     #[serde(skip_serializing_if = "Vec::is_empty", default)]
     examples: Vec<ComplexExample>,
 }
@@ -6522,6 +6536,12 @@ fn extract_complex_rules(path: &Path) -> Result<Vec<ComplexRule>, Box<dyn std::e
     // For dynamic suggestions with <match> elements
     let mut current_suggestion_parts: Vec<SuggestionPart> = Vec::new();
     let mut suggestion_has_match = false;
+    // For unification groups
+    let mut in_unify = false;
+    let mut current_unify_features: Vec<String> = Vec::new();
+    let mut current_unify_negate = false;
+    let mut current_unify_start_idx: usize = 0;
+    let mut current_unification_groups: Vec<UnificationGroup> = Vec::new();
 
     loop {
         match reader.read_event_into(&mut buf) {
@@ -6546,12 +6566,14 @@ fn extract_complex_rules(path: &Path) -> Result<Vec<ComplexRule>, Box<dyn std::e
                                     message: String::new(),
                                     suggestions: Vec::new(),
                                     dynamic_suggestions: Vec::new(),
+                                    unification_groups: Vec::new(),
                                     examples: Vec::new(),
                                 });
                             }
                         }
                         current_pattern.clear();
                         current_antipatterns.clear();
+                        current_unification_groups.clear();
                     }
                     "antipattern" => {
                         in_antipattern = true;
@@ -6559,6 +6581,20 @@ fn extract_complex_rules(path: &Path) -> Result<Vec<ComplexRule>, Box<dyn std::e
                     }
                     "pattern" => {
                         current_pattern.clear();
+                    }
+                    "unify" => {
+                        in_unify = true;
+                        current_unify_features.clear();
+                        current_unify_negate = get_attr(e, "negate").map(|v| v == "yes").unwrap_or(false);
+                        // Track where the unify group starts (current pattern length)
+                        current_unify_start_idx = current_pattern.len();
+                    }
+                    "feature" => {
+                        if in_unify {
+                            if let Some(feature_id) = get_attr(e, "id") {
+                                current_unify_features.push(feature_id);
+                            }
+                        }
                     }
                     "token" => {
                         let token = ComplexPatternToken {
@@ -6609,6 +6645,7 @@ fn extract_complex_rules(path: &Path) -> Result<Vec<ComplexRule>, Box<dyn std::e
                         if let Some(mut rule) = current_rule.take() {
                             rule.pattern = current_pattern.clone();
                             rule.antipatterns = current_antipatterns.clone();
+                            rule.unification_groups = current_unification_groups.clone();
 
                             // Only keep rules that have complex features
                             let is_complex = is_complex_rule(&rule);
@@ -6627,6 +6664,20 @@ fn extract_complex_rules(path: &Path) -> Result<Vec<ComplexRule>, Box<dyn std::e
                             });
                         }
                         in_antipattern = false;
+                    }
+                    "unify" => {
+                        // Create unification group with all tokens since unify started
+                        let token_indices: Vec<usize> = (current_unify_start_idx..current_pattern.len()).collect();
+                        if !token_indices.is_empty() && !current_unify_features.is_empty() {
+                            if !in_antipattern {
+                                current_unification_groups.push(UnificationGroup {
+                                    features: current_unify_features.clone(),
+                                    token_indices,
+                                    negate: current_unify_negate,
+                                });
+                            }
+                        }
+                        in_unify = false;
                     }
                     "token" => {
                         if let Some(mut token) = current_token.take() {
@@ -6736,6 +6787,11 @@ fn extract_complex_rules(path: &Path) -> Result<Vec<ComplexRule>, Box<dyn std::e
                         current_antipattern_tokens.push(token);
                     } else {
                         current_pattern.push(token);
+                    }
+                } else if name == "feature" && in_unify {
+                    // Handle <feature id="gender"/> inside unify
+                    if let Some(feature_id) = get_attr(e, "id") {
+                        current_unify_features.push(feature_id);
                     }
                 } else if name == "match" && in_suggestion {
                     // Handle <match no="N" .../> inside suggestions
@@ -6868,6 +6924,11 @@ fn is_complex_rule(rule: &ComplexRule) -> bool {
 
     // Check if we already have parsed dynamic suggestions
     if !rule.dynamic_suggestions.is_empty() {
+        return true;
+    }
+
+    // Check if we have unification groups (gender/number agreement)
+    if !rule.unification_groups.is_empty() {
         return true;
     }
 
