@@ -212,15 +212,15 @@ cargo run --bin sync-lt -- --extract-ngrams --language en
 **Couverture actuelle:**
 | Source | Règles FR | Règles EN | Couverture |
 |--------|-----------|-----------|------------|
-| grammar.xml total | 4,653 | ~3,500 | - |
-| Patterns simples (AhoPatternRuleChecker) | 170 | 394 | ~8% |
-| POS patterns (PosPatternChecker) | 25 | 94 | ~3% |
-| **Complex patterns (DynamicPatternChecker)** | **845** | **2,161** | **~60%** |
-| **Suggestions dynamiques** | **484** | **599** | ✅ Base implémentée |
+| grammar.xml + style.xml total | ~5,600 | ~4,500 | - |
+| Patterns simples (AhoPatternRuleChecker) | 170 | 394 | ~5% |
+| POS patterns (PosPatternChecker) | 25 | 94 | ~2% |
+| **Complex patterns (DynamicPatternChecker)** | **1,852** | **2,345** | **~80%** |
+| **Suggestions dynamiques** | **~700** | **~750** | ✅ Base implémentée |
+| **Unification (accord)** | **14** | **0** | 🔶 FR only |
 | Confusion pairs | 101 | 1,363 | ✅ Complet |
-| Style rules | 51 | 1,399 | ✅ Complet |
 | Antipatterns | 216 | 1,054 | ✅ Complet |
-| **Couverture règles pattern** | **~75%** | **~70%** | - |
+| **Couverture règles pattern** | **~85%** | **~75%** | - |
 
 **Fichiers:**
 - `src/checker/dynamic_pattern_checker.rs` - Checker runtime
@@ -245,7 +245,7 @@ cargo run --bin sync-lt -- --extract-ngrams --language en
 |-----------|----------|----------|------|
 | ✅ Complété | FR pipeline, ProhibitChecker, L2ConfusionChecker FR, SpellChecker, Proper Nouns, Disambig Skip, Numbers POS, DynamicPatternChecker, **Suggestions dynamiques** | - | Intégré |
 | 🔶 Partiel | Disambiguation/POS (skip patterns OK, contexte manquant) | BASSE | Skip patterns intégrés |
-| 🔶 Partiel | Complex Pattern Rules (regex/skip/suggestions/unification OK, POS transform manquant) | MOYENNE | 3,006 règles + 14 unification |
+| 🔶 Partiel | Complex Pattern Rules (regex/skip/suggestions/unification OK, POS transform manquant) | MOYENNE | 4,197 règles (grammar.xml + style.xml) |
 | ❌ Complexe | Disambiguation contextuelles | BASSE | Nécessite ML |
 | ⏸️ Différé | Multiwords | BASSE | Nécessite POS avancé |
 
@@ -253,7 +253,7 @@ cargo run --bin sync-lt -- --extract-ngrams --language en
 - **Disambiguation:** Skip patterns extraits et intégrés, règles contextuelles non implémentées
 - **N-gram:** ✅ Implémenté avec format compact et memory-mapping
 - **SpellChecker:** ✅ Intégré avec FST 370K mots EN + 34K mots FR + skip patterns disambiguation
-- **Complex Pattern Rules:** 🔶 DynamicPatternChecker implémenté (2,161 EN + 845 FR) avec suggestions dynamiques. Unification et transformations POS manquants.
+- **Complex Pattern Rules:** 🔶 DynamicPatternChecker implémenté (2,345 EN + 1,852 FR = 4,197 total) avec suggestions dynamiques et unification FR. Transformations POS manquantes.
 
 ---
 

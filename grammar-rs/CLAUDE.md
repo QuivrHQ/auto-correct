@@ -238,9 +238,9 @@ Supporte les fonctionnalités avancées de grammar.xml:
 - `<unify>` - validation genre/nombre (accord grammatical français)
 
 **Stats:**
-- EN: 2,161 règles complexes (599 avec suggestions dynamiques)
-- FR: 845 règles complexes (484 avec suggestions dynamiques, 14 avec unification)
-- Total: 3,006 règles supplémentaires (en plus des patterns simples)
+- EN: 2,345 règles complexes (grammar.xml + style.xml)
+- FR: 1,852 règles complexes (grammar.xml + style.xml, 14 avec unification)
+- Total: 4,197 règles supplémentaires (en plus des patterns simples)
 
 **Fichiers:**
 - `src/checker/dynamic_pattern_checker.rs` - Checker avec compilation regex au chargement

@@ -1338,17 +1338,30 @@ fn sync_language(lt_path: &Path, lang: &str) -> Result<SyncStats, Box<dyn std::e
     // ═══════════════════════════════════════════════════════════════════════════════
 
     // 29. Extract complex patterns that can't be compiled to simple Rust code
-    if grammar_path.exists() {
-        let complex_rules = extract_complex_rules(&grammar_path)?;
-        stats.complex_patterns = complex_rules.len();
-        println!("   complex patterns: {} extracted from grammar.xml", stats.complex_patterns);
+    let mut all_complex_rules = Vec::new();
 
-        if !complex_rules.is_empty() {
-            // Serialize to JSON for runtime loading
-            let json = serde_json::to_string_pretty(&complex_rules)?;
-            let output_path = output_dir.join(format!("{}_complex_patterns.json", lang));
-            fs::write(&output_path, json)?;
-        }
+    // Extract from grammar.xml
+    if grammar_path.exists() {
+        let grammar_rules = extract_complex_rules(&grammar_path)?;
+        println!("   complex patterns: {} extracted from grammar.xml", grammar_rules.len());
+        all_complex_rules.extend(grammar_rules);
+    }
+
+    // Extract from style.xml (same format as grammar.xml)
+    let style_xml_path = rules_path.join("style.xml");
+    if style_xml_path.exists() {
+        let style_rules = extract_complex_rules(&style_xml_path)?;
+        println!("   complex patterns: {} extracted from style.xml", style_rules.len());
+        all_complex_rules.extend(style_rules);
+    }
+
+    stats.complex_patterns = all_complex_rules.len();
+
+    if !all_complex_rules.is_empty() {
+        // Serialize to JSON for runtime loading
+        let json = serde_json::to_string_pretty(&all_complex_rules)?;
+        let output_path = output_dir.join(format!("{}_complex_patterns.json", lang));
+        fs::write(&output_path, json)?;
     }
 
     // Update mod.rs
