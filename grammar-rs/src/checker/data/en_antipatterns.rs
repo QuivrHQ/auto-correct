@@ -1,5 +1,5 @@
 //! Auto-generated antipatterns for EN from LanguageTool
-//! Synced: 2026-01-23T18:37:50.038011260+00:00
+//! Synced: 2026-01-24T12:08:47.701164+00:00
 //! Total antipatterns: 1053
 //! DO NOT EDIT MANUALLY - Run `cargo run --bin sync-lt` to update
 //!

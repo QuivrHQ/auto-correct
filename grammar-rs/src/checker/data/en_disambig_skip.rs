@@ -1,5 +1,5 @@
 //! Auto-generated disambiguation skip patterns for EN from LanguageTool
-//! Synced: 2026-01-23T18:37:50.093693355+00:00
+//! Synced: 2026-01-24T12:08:47.729232+00:00
 //! Total: 24 words + 36 regex patterns
 //! DO NOT EDIT MANUALLY - Run `cargo run --bin sync-lt` to update
 //!

@@ -1,5 +1,5 @@
 //! Auto-generated compound word rules for FR from LanguageTool
-//! Synced: 2026-01-23T18:37:51.359384856+00:00
+//! Synced: 2026-01-24T12:08:49.182361+00:00
 //! Total rules: 1345
 //! DO NOT EDIT MANUALLY - Run `cargo run --bin sync-lt` to update
 //!

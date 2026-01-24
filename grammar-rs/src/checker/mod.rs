@@ -15,6 +15,7 @@ pub mod compound_checker;
 mod prohibit_checker;
 mod l2_confusion_checker;
 mod ngram_confusion_checker;
+mod dynamic_pattern_checker;
 
 pub use spell::SpellChecker;
 pub use rules::{
@@ -132,3 +133,8 @@ pub use compound_checker::CompoundWordChecker;
 pub use prohibit_checker::ProhibitChecker;
 pub use l2_confusion_checker::L2ConfusionChecker;
 pub use ngram_confusion_checker::NgramConfusionChecker;
+pub use dynamic_pattern_checker::{
+    DynamicPatternChecker, ComplexRule, ComplexPatternToken, ComplexAntipattern, ComplexExample,
+    get_fr_dynamic_checker, get_en_dynamic_checker,
+    create_fr_dynamic_checker, create_en_dynamic_checker,
+};

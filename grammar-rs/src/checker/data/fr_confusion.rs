@@ -1,5 +1,5 @@
 //! Auto-generated confusion pairs for FR from LanguageTool
-//! Synced: 2026-01-23T18:37:51.323984982+00:00
+//! Synced: 2026-01-24T12:08:49.163558+00:00
 //! DO NOT EDIT MANUALLY - Run `cargo run --bin sync-lt` to update
 //!
 //! Source: LanguageTool confusion_sets.txt

@@ -1,5 +1,5 @@
 //! Auto-generated disambiguation skip patterns for FR from LanguageTool
-//! Synced: 2026-01-23T18:37:51.914651576+00:00
+//! Synced: 2026-01-24T12:08:49.459028+00:00
 //! Total: 1 words + 3 regex patterns
 //! DO NOT EDIT MANUALLY - Run `cargo run --bin sync-lt` to update
 //!

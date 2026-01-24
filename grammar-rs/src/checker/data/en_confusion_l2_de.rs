@@ -1,5 +1,5 @@
 //! Auto-generated L2 confusion pairs for German native speakers writing EN
-//! Synced: 2026-01-23T18:37:49.345695463+00:00
+//! Synced: 2026-01-24T12:08:47.345445+00:00
 //! Total pairs: 75
 //! DO NOT EDIT MANUALLY - Run `cargo run --bin sync-lt` to update
 //!

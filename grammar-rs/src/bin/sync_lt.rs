@@ -218,6 +218,79 @@ struct Antipattern {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
+// Complex pattern structures (for JSON serialization)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+struct ComplexPatternToken {
+    text: Option<String>,
+    regexp: Option<String>,
+    postag: Option<String>,
+    postag_regexp: bool,
+    inflected: bool,
+    case_sensitive: bool,
+    negation: bool,
+    min: u32,
+    max: u32,
+    skip: Option<i32>,
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+struct ComplexAntipattern {
+    tokens: Vec<ComplexPatternToken>,
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+struct ComplexSuggestion {
+    /// Static text parts and match references
+    parts: Vec<SuggestionPart>,
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(tag = "type")]
+enum SuggestionPart {
+    Literal { text: String },
+    MatchRef {
+        /// Token index (1-indexed as in LanguageTool)
+        index: usize,
+        /// Regex pattern to match on token text
+        regexp_match: Option<String>,
+        /// Replacement for regex match
+        regexp_replace: Option<String>,
+        /// POS tag pattern (with postag_regexp="yes")
+        postag: Option<String>,
+        /// POS tag replacement pattern (e.g., "$1 f s")
+        postag_replace: Option<String>,
+        /// Case conversion: "startlower", "startupper", "alllower", "allupper", "preserve"
+        case_conversion: Option<String>,
+    },
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+struct ComplexRule {
+    id: String,
+    name: String,
+    category: String,
+    pattern: Vec<ComplexPatternToken>,
+    antipatterns: Vec<ComplexAntipattern>,
+    message: String,
+    /// Static suggestions (simple text)
+    suggestions: Vec<String>,
+    /// Dynamic suggestions with <match> references
+    #[serde(skip_serializing_if = "Vec::is_empty", default)]
+    dynamic_suggestions: Vec<ComplexSuggestion>,
+    #[serde(skip_serializing_if = "Vec::is_empty", default)]
+    examples: Vec<ComplexExample>,
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+struct ComplexExample {
+    text: String,
+    is_correct: bool,
+    correction: Option<String>,
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
 // Disambiguation structures
 // ═══════════════════════════════════════════════════════════════════════════════
 
@@ -294,6 +367,8 @@ struct SyncStats {
     disambig_pos: usize,
     // Phase 7: N-gram confusion words
     ngram_confusion_words: usize,
+    // Phase 8: Complex patterns
+    complex_patterns: usize,
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -391,6 +466,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         total_stats.disambig_pos += stats.disambig_pos;
         // Phase 7: N-gram
         total_stats.ngram_confusion_words += stats.ngram_confusion_words;
+        // Phase 8
+        total_stats.complex_patterns += stats.complex_patterns;
     }
 
     println!("\n{}", "=".repeat(70));
@@ -470,6 +547,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!(
         "  N-gram confusion words: {}",
         total_stats.ngram_confusion_words
+    );
+    // Phase 8 stats
+    println!(
+        "  Complex patterns: {}",
+        total_stats.complex_patterns
     );
     println!("{}", "=".repeat(70));
 
@@ -1234,6 +1316,24 @@ fn sync_language(lt_path: &Path, lang: &str) -> Result<SyncStats, Box<dyn std::e
             let code = generate_ngram_words_file(&words, lang);
             let output_path = output_dir.join(format!("{}_ngram_words.rs", lang));
             fs::write(&output_path, code)?;
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════════
+    // Phase 8: Complex pattern rules (regex, postag_regexp, skip, etc.)
+    // ═══════════════════════════════════════════════════════════════════════════════
+
+    // 29. Extract complex patterns that can't be compiled to simple Rust code
+    if grammar_path.exists() {
+        let complex_rules = extract_complex_rules(&grammar_path)?;
+        stats.complex_patterns = complex_rules.len();
+        println!("   complex patterns: {} extracted from grammar.xml", stats.complex_patterns);
+
+        if !complex_rules.is_empty() {
+            // Serialize to JSON for runtime loading
+            let json = serde_json::to_string_pretty(&complex_rules)?;
+            let output_path = output_dir.join(format!("{}_complex_patterns.json", lang));
+            fs::write(&output_path, json)?;
         }
     }
 
@@ -6390,4 +6490,402 @@ fn process_ngram_directory(dir_path: &Path) -> Result<Vec<(String, u64)>, Box<dy
     }
 
     Ok(all_entries)
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Phase 8: Parser - complex patterns from grammar.xml
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/// Extract complex rules that use regex, postag_regexp, skip, etc.
+/// These rules can't be compiled to simple Rust code and need runtime interpretation.
+fn extract_complex_rules(path: &Path) -> Result<Vec<ComplexRule>, Box<dyn std::error::Error>> {
+    let content = fs::read_to_string(path)?;
+    let mut reader = Reader::from_str(&content);
+    reader.trim_text(true);
+
+    let mut rules = Vec::new();
+    let mut buf = Vec::new();
+
+    let mut current_rule: Option<ComplexRule> = None;
+    let mut current_pattern: Vec<ComplexPatternToken> = Vec::new();
+    let mut current_antipatterns: Vec<ComplexAntipattern> = Vec::new();
+    let mut current_antipattern_tokens: Vec<ComplexPatternToken> = Vec::new();
+    let mut in_antipattern = false;
+    let mut in_message = false;
+    let mut in_suggestion = false;
+    let mut in_token = false;
+    let mut in_example = false;
+    let mut current_category = String::new();
+    let mut text_buffer = String::new();
+    let mut current_token: Option<ComplexPatternToken> = None;
+    let mut current_example: Option<ComplexExample> = None;
+    // For dynamic suggestions with <match> elements
+    let mut current_suggestion_parts: Vec<SuggestionPart> = Vec::new();
+    let mut suggestion_has_match = false;
+
+    loop {
+        match reader.read_event_into(&mut buf) {
+            Ok(Event::Start(ref e)) => {
+                let name = String::from_utf8_lossy(e.name().as_ref()).to_string();
+
+                match name.as_str() {
+                    "category" => {
+                        current_category = get_attr(e, "name").unwrap_or_default();
+                    }
+                    "rulegroup" | "rule" => {
+                        if name == "rule" || (name == "rulegroup" && current_rule.is_none()) {
+                            let id = get_attr(e, "id").unwrap_or_default();
+                            let rule_name = get_attr(e, "name").unwrap_or_default();
+                            if !id.is_empty() {
+                                current_rule = Some(ComplexRule {
+                                    id,
+                                    name: rule_name,
+                                    category: current_category.clone(),
+                                    pattern: Vec::new(),
+                                    antipatterns: Vec::new(),
+                                    message: String::new(),
+                                    suggestions: Vec::new(),
+                                    dynamic_suggestions: Vec::new(),
+                                    examples: Vec::new(),
+                                });
+                            }
+                        }
+                        current_pattern.clear();
+                        current_antipatterns.clear();
+                    }
+                    "antipattern" => {
+                        in_antipattern = true;
+                        current_antipattern_tokens.clear();
+                    }
+                    "pattern" => {
+                        current_pattern.clear();
+                    }
+                    "token" => {
+                        let token = ComplexPatternToken {
+                            text: None,
+                            regexp: get_attr(e, "regexp").map(|v| if v == "yes" { "".to_string() } else { v }),
+                            postag: get_attr(e, "postag"),
+                            postag_regexp: get_attr(e, "postag_regexp").map(|v| v == "yes").unwrap_or(false),
+                            inflected: get_attr(e, "inflected").map(|v| v == "yes").unwrap_or(false),
+                            case_sensitive: get_attr(e, "case_sensitive").map(|v| v == "yes").unwrap_or(false),
+                            negation: get_attr(e, "negate").map(|v| v == "yes").unwrap_or(false),
+                            min: get_attr(e, "min").and_then(|v| v.parse().ok()).unwrap_or(1),
+                            max: get_attr(e, "max").and_then(|v| v.parse().ok()).unwrap_or(1),
+                            skip: get_attr(e, "skip").and_then(|v| v.parse().ok()),
+                        };
+                        current_token = Some(token);
+                        in_token = true;
+                        text_buffer.clear();
+                    }
+                    "message" => {
+                        in_message = true;
+                        text_buffer.clear();
+                    }
+                    "suggestion" => {
+                        in_suggestion = true;
+                        text_buffer.clear();
+                        current_suggestion_parts.clear();
+                        suggestion_has_match = false;
+                    }
+                    "example" => {
+                        let correction = get_attr(e, "correction");
+                        let is_correct = get_attr(e, "type").map(|v| v != "incorrect").unwrap_or(true);
+                        current_example = Some(ComplexExample {
+                            text: String::new(),
+                            is_correct,
+                            correction,
+                        });
+                        in_example = true;
+                        text_buffer.clear();
+                    }
+                    _ => {}
+                }
+            }
+            Ok(Event::End(ref e)) => {
+                let name = String::from_utf8_lossy(e.name().as_ref()).to_string();
+
+                match name.as_str() {
+                    "rulegroup" | "rule" => {
+                        if let Some(mut rule) = current_rule.take() {
+                            rule.pattern = current_pattern.clone();
+                            rule.antipatterns = current_antipatterns.clone();
+
+                            // Only keep rules that have complex features
+                            let is_complex = is_complex_rule(&rule);
+                            if is_complex && !rule.id.is_empty() && !rule.pattern.is_empty() {
+                                rules.push(rule);
+                            }
+                        }
+                        if name == "rulegroup" {
+                            current_rule = None;
+                        }
+                    }
+                    "antipattern" => {
+                        if !current_antipattern_tokens.is_empty() {
+                            current_antipatterns.push(ComplexAntipattern {
+                                tokens: current_antipattern_tokens.clone(),
+                            });
+                        }
+                        in_antipattern = false;
+                    }
+                    "token" => {
+                        if let Some(mut token) = current_token.take() {
+                            let text = text_buffer.trim().to_string();
+                            if !text.is_empty() {
+                                // If regexp="yes", store text in regexp field
+                                if token.regexp == Some("".to_string()) {
+                                    token.regexp = Some(text);
+                                    token.text = None;
+                                } else {
+                                    token.text = Some(text);
+                                }
+                            }
+                            if in_antipattern {
+                                current_antipattern_tokens.push(token);
+                            } else {
+                                current_pattern.push(token);
+                            }
+                        }
+                        in_token = false;
+                    }
+                    "message" => {
+                        if let Some(ref mut rule) = current_rule {
+                            rule.message = text_buffer.trim().to_string();
+                        }
+                        in_message = false;
+                    }
+                    "suggestion" => {
+                        if let Some(ref mut rule) = current_rule {
+                            let trimmed = text_buffer.trim().to_string();
+
+                            if suggestion_has_match {
+                                // Dynamic suggestion with <match> elements
+                                // Add any remaining text, parsing \N references
+                                if !trimmed.is_empty() {
+                                    current_suggestion_parts.extend(parse_suggestion_text(&trimmed));
+                                }
+                                if !current_suggestion_parts.is_empty() {
+                                    rule.dynamic_suggestions.push(ComplexSuggestion {
+                                        parts: current_suggestion_parts.clone(),
+                                    });
+                                }
+                            } else {
+                                // Check if the text contains \N references
+                                if trimmed.contains("\\") && trimmed.chars().any(|c| c.is_ascii_digit()) {
+                                    // Parse as dynamic suggestion
+                                    let parts = parse_suggestion_text(&trimmed);
+                                    if !parts.is_empty() && parts.iter().any(|p| matches!(p, SuggestionPart::MatchRef { .. })) {
+                                        rule.dynamic_suggestions.push(ComplexSuggestion { parts });
+                                    } else if !trimmed.is_empty() {
+                                        rule.suggestions.push(trimmed);
+                                    }
+                                } else if !trimmed.is_empty() {
+                                    // Simple text suggestion
+                                    rule.suggestions.push(trimmed);
+                                }
+                            }
+                        }
+                        in_suggestion = false;
+                    }
+                    "example" => {
+                        if let Some(mut example) = current_example.take() {
+                            // Clean up marker tags
+                            example.text = text_buffer
+                                .replace("<marker>", "")
+                                .replace("</marker>", "")
+                                .trim()
+                                .to_string();
+                            if let Some(ref mut rule) = current_rule {
+                                if !example.text.is_empty() {
+                                    rule.examples.push(example);
+                                }
+                            }
+                        }
+                        in_example = false;
+                    }
+                    _ => {}
+                }
+            }
+            Ok(Event::Text(e)) => {
+                let text = e.unescape().unwrap_or_default().to_string();
+                if in_token || in_message || in_suggestion || in_example {
+                    text_buffer.push_str(&text);
+                }
+            }
+            Ok(Event::Empty(ref e)) => {
+                let name = String::from_utf8_lossy(e.name().as_ref()).to_string();
+                if name == "token" {
+                    let mut token = ComplexPatternToken {
+                        text: None,
+                        regexp: get_attr(e, "regexp").map(|v| if v == "yes" { "".to_string() } else { v }),
+                        postag: get_attr(e, "postag"),
+                        postag_regexp: get_attr(e, "postag_regexp").map(|v| v == "yes").unwrap_or(false),
+                        inflected: get_attr(e, "inflected").map(|v| v == "yes").unwrap_or(false),
+                        case_sensitive: get_attr(e, "case_sensitive").map(|v| v == "yes").unwrap_or(false),
+                        negation: get_attr(e, "negate").map(|v| v == "yes").unwrap_or(false),
+                        min: get_attr(e, "min").and_then(|v| v.parse().ok()).unwrap_or(1),
+                        max: get_attr(e, "max").and_then(|v| v.parse().ok()).unwrap_or(1),
+                        skip: get_attr(e, "skip").and_then(|v| v.parse().ok()),
+                    };
+                    // For empty tokens, check if there's a text in the tag
+                    if token.regexp == Some("".to_string()) {
+                        // No text content for empty token, just a regex flag
+                        token.regexp = None;
+                    }
+                    if in_antipattern {
+                        current_antipattern_tokens.push(token);
+                    } else {
+                        current_pattern.push(token);
+                    }
+                } else if name == "match" && in_suggestion {
+                    // Handle <match no="N" .../> inside suggestions
+                    suggestion_has_match = true;
+
+                    // Save any accumulated text, parsing \N references
+                    let accumulated = text_buffer.trim().to_string();
+                    if !accumulated.is_empty() {
+                        current_suggestion_parts.extend(parse_suggestion_text(&accumulated));
+                    }
+                    text_buffer.clear();
+
+                    // Parse match attributes
+                    let index = get_attr(e, "no")
+                        .and_then(|v| v.parse::<usize>().ok())
+                        .unwrap_or(1);
+                    let regexp_match = get_attr(e, "regexp_match");
+                    let regexp_replace = get_attr(e, "regexp_replace");
+                    let postag = get_attr(e, "postag");
+                    let postag_replace = get_attr(e, "postag_replace");
+                    let case_conversion = get_attr(e, "case_conversion");
+
+                    current_suggestion_parts.push(SuggestionPart::MatchRef {
+                        index,
+                        regexp_match,
+                        regexp_replace,
+                        postag,
+                        postag_replace,
+                        case_conversion,
+                    });
+                }
+            }
+            Ok(Event::Eof) => break,
+            Err(e) => {
+                eprintln!("Error parsing XML at position {}: {:?}", reader.buffer_position(), e);
+                break;
+            }
+            _ => {}
+        }
+        buf.clear();
+    }
+
+    Ok(rules)
+}
+
+/// Parse suggestion text and convert \N references to MatchRef parts
+/// Returns a vector of SuggestionParts (Literal and MatchRef)
+fn parse_suggestion_text(text: &str) -> Vec<SuggestionPart> {
+    let mut parts = Vec::new();
+    let mut current_literal = String::new();
+    let mut chars = text.chars().peekable();
+
+    while let Some(c) = chars.next() {
+        if c == '\\' {
+            // Check if next char is a digit (token reference)
+            if let Some(&next) = chars.peek() {
+                if next.is_ascii_digit() {
+                    // Save accumulated literal if any
+                    if !current_literal.is_empty() {
+                        parts.push(SuggestionPart::Literal {
+                            text: current_literal.clone(),
+                        });
+                        current_literal.clear();
+                    }
+
+                    // Parse the number (can be multi-digit)
+                    let mut num_str = String::new();
+                    while let Some(&d) = chars.peek() {
+                        if d.is_ascii_digit() {
+                            num_str.push(chars.next().unwrap());
+                        } else {
+                            break;
+                        }
+                    }
+
+                    if let Ok(index) = num_str.parse::<usize>() {
+                        parts.push(SuggestionPart::MatchRef {
+                            index,
+                            regexp_match: None,
+                            regexp_replace: None,
+                            postag: None,
+                            postag_replace: None,
+                            case_conversion: None,
+                        });
+                    }
+                } else {
+                    // Not a number, keep the backslash
+                    current_literal.push(c);
+                }
+            } else {
+                // End of string, keep the backslash
+                current_literal.push(c);
+            }
+        } else {
+            current_literal.push(c);
+        }
+    }
+
+    // Don't forget the last literal
+    if !current_literal.is_empty() {
+        parts.push(SuggestionPart::Literal {
+            text: current_literal,
+        });
+    }
+
+    parts
+}
+
+/// Check if a rule uses complex features that require runtime interpretation
+fn is_complex_rule(rule: &ComplexRule) -> bool {
+    // Check pattern tokens
+    for token in &rule.pattern {
+        // Has regex pattern in text
+        if token.regexp.is_some() {
+            return true;
+        }
+        // Has postag with regex
+        if token.postag_regexp {
+            return true;
+        }
+        // Has skip
+        if token.skip.is_some() {
+            return true;
+        }
+        // Has min/max different from 1
+        if token.min != 1 || token.max != 1 {
+            return true;
+        }
+    }
+
+    // Check if we already have parsed dynamic suggestions
+    if !rule.dynamic_suggestions.is_empty() {
+        return true;
+    }
+
+    // Check if suggestions contain dynamic references (backslash or dollar references)
+    for suggestion in &rule.suggestions {
+        if suggestion.contains("\\1") || suggestion.contains("\\2") ||
+           suggestion.contains("$1") || suggestion.contains("$2") ||
+           suggestion.contains("<match") {
+            return true;
+        }
+    }
+
+    // Check if message contains dynamic references
+    if rule.message.contains("\\1") || rule.message.contains("\\2") ||
+       rule.message.contains("$1") || rule.message.contains("$2") ||
+       rule.message.contains("<match") {
+        return true;
+    }
+
+    false
 }

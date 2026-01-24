@@ -1,5 +1,5 @@
 //! Auto-generated spelling word list for EN from LanguageTool
-//! Synced: 2026-01-23T18:37:49.291192704+00:00
+//! Synced: 2026-01-24T12:08:47.317198+00:00
 //! Total words: 468
 //! DO NOT EDIT MANUALLY - Run `cargo run --bin sync-lt` to update
 //!

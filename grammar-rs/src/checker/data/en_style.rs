@@ -1,5 +1,5 @@
 //! Auto-generated style rules for EN from LanguageTool
-//! Synced: 2026-01-23T18:37:49.047436412+00:00
+//! Synced: 2026-01-24T12:08:47.197882+00:00
 //! Total rules: 1398 (692 wordiness, 706 redundancy)
 //! DO NOT EDIT MANUALLY - Run `cargo run --bin sync-lt` to update
 //!

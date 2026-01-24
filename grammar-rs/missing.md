@@ -1,10 +1,12 @@
 # Grammar-RS: Features Manquantes
 
-> **État actuel:** ~93% de parité fonctionnelle avec LanguageTool
+> **État actuel:** ~70% des règles grammar.xml extraites (patterns simples + complexes)
 >
 > **Performance:** grammar-rs ~9ms vs LanguageTool ~1.4s (~150x plus rapide)
 >
-> **Dernière mise à jour:** Disambiguation skip patterns extraits via sync-lt (EN: 24+36, FR: 1+3)
+> **Principale lacune:** Unification + Suggestions dynamiques (~30% des règles restantes)
+>
+> **Dernière mise à jour:** 2026-01-24 - Ajout documentation Complex Pattern Rules
 
 ---
 
@@ -33,22 +35,41 @@
 
 ---
 
-## 2. N-gram Language Models - ❌ Non implémenté
+## 2. N-gram Language Models - ✅ COMPLÉTÉ
 
 **Description:** Modèles statistiques pour détecter erreurs de choix de mots basés sur le contexte.
 
 **Exemple:** "I went to there house" → "their" (basé sur fréquence n-gram)
 
-**État:** 0%
+**État:** ✅ Implémenté
 
-**Problème:** Modèles ~1GB par langue. Pas prioritaire pour solution légère.
+**Fichiers:**
+- `src/language_model/mod.rs` - Module N-gram
+- `src/language_model/compact_model.rs` - Format compact avec mmap
+- `src/language_model/builder.rs` - Construction des modèles
+- `src/checker/ngram_confusion_checker.rs` - Checker confusion N-gram
 
-**Alternative:** Confusion pairs avec scoring de fréquence (partiellement implémenté).
+**Fonctionnalités:**
+- ✅ Stupid Backoff (trigram → bigram → unigram)
+- ✅ Format compact avec memory-mapping (memmap2)
+- ✅ Binary search O(log n) sur arrays triés
+- ✅ Support EN + FR
+- ✅ Facteurs calibrés de LanguageTool (confusion_sets.txt)
 
-**Sources LT:**
-- `languagetool/org/languagetool/resource/en/ngram-index/`
+**Taille données:**
+- EN: ~1.5-2 GB compressé (vs 9 GB raw)
+- FR: ~500 MB compressé (vs 2 GB raw)
 
-**Priorité:** BASSE
+**Usage:**
+```bash
+# Télécharger les données N-gram
+./scripts/download_ngrams.sh en
+
+# Extraire au format compact
+cargo run --bin sync-lt -- --extract-ngrams --language en
+```
+
+**Priorité:** ~~BASSE~~ TERMINÉ
 
 ---
 
@@ -167,19 +188,78 @@
 
 ---
 
+## 10. Complex Pattern Rules - 🔶 Partiellement implémenté
+
+**Description:** Règles grammar.xml utilisant des fonctionnalités avancées (regex, skip, unification, suggestions dynamiques).
+
+**État actuel:**
+- ✅ Patterns simples (2-6 tokens, texte littéral): 170 FR, 394 EN
+- ✅ Patterns regex (`regexp="yes"`): 2,161 EN + 845 FR via DynamicPatternChecker
+- ✅ Patterns postag_regexp (`postag_regexp="yes"`): supporté
+- ✅ Tokens optionnels (`min="0"`): supporté
+- ✅ Skip gaps (`skip="N"`): supporté (base)
+- ✅ Antipatterns: supporté dans DynamicPatternChecker
+- ✅ Suggestions dynamiques (`<match no="N">`): **IMPLÉMENTÉ** (599 EN + 484 FR)
+  - Références `\N` aux tokens matchés
+  - Transformations regex (`regexp_match`/`regexp_replace`)
+  - Conversion de casse (`alllower`, `startupper`, etc.)
+- ⏸️ Transformations POS (`postag_replace`): non supporté (nécessite morphologie)
+- ⏸️ Unification (`<unify>`): non supporté (accord genre/nombre)
+
+**Couverture actuelle:**
+| Source | Règles FR | Règles EN | Couverture |
+|--------|-----------|-----------|------------|
+| grammar.xml total | 4,653 | ~3,500 | - |
+| Patterns simples (AhoPatternRuleChecker) | 170 | 394 | ~8% |
+| POS patterns (PosPatternChecker) | 25 | 94 | ~3% |
+| **Complex patterns (DynamicPatternChecker)** | **845** | **2,161** | **~60%** |
+| **Suggestions dynamiques** | **484** | **599** | ✅ Base implémentée |
+| Confusion pairs | 101 | 1,363 | ✅ Complet |
+| Style rules | 51 | 1,399 | ✅ Complet |
+| Antipatterns | 216 | 1,054 | ✅ Complet |
+| **Couverture règles pattern** | **~75%** | **~70%** | - |
+
+**Fichiers:**
+- `src/checker/dynamic_pattern_checker.rs` - Checker runtime
+- `src/checker/data/en_complex_patterns.json` - 2,161 règles EN (~8 MB)
+- `src/checker/data/fr_complex_patterns.json` - 845 règles FR (~3.5 MB)
+
+**Fonctionnalités manquantes:**
+
+1. **Unification** (`<unify>`) - Accord genre/nombre:
+   ```xml
+   <unify>
+     <token><feature>gender</feature></token>
+     <token><feature>gender</feature></token>
+   </unify>
+   <!-- Vérifie que les tokens ont le même genre -->
+   ```
+
+2. **Transformations POS** (`postag_replace`):
+   ```xml
+   <suggestion><match no="1" postag="V.*:3s" postag_replace="V.*:2s"/></suggestion>
+   <!-- Nécessite un lemmatizer/morphological generator -->
+   ```
+
+**Priorité:** MOYENNE (suggestions dynamiques implémentées, unification et transformations POS manquants)
+
+---
+
 ## Résumé
 
 | Catégorie | Features | Priorité | État |
 |-----------|----------|----------|------|
-| ✅ Complété | FR pipeline, ProhibitChecker, L2ConfusionChecker FR, SpellChecker, Proper Nouns, Disambig Skip, Numbers POS | - | Intégré |
+| ✅ Complété | FR pipeline, ProhibitChecker, L2ConfusionChecker FR, SpellChecker, Proper Nouns, Disambig Skip, Numbers POS, DynamicPatternChecker, **Suggestions dynamiques** | - | Intégré |
 | 🔶 Partiel | Disambiguation/POS (skip patterns OK, contexte manquant) | BASSE | Skip patterns intégrés |
+| 🔶 Partiel | Complex Pattern Rules (regex/skip/suggestions OK, unification manquant) | MOYENNE | 3,006 règles intégrées |
 | ❌ Complexe | Disambiguation contextuelles | BASSE | Nécessite ML |
 | ⏸️ Différé | Multiwords | BASSE | Nécessite POS avancé |
 
 **Note:**
 - **Disambiguation:** Skip patterns extraits et intégrés, règles contextuelles non implémentées
-- **N-gram:** Nécessite modèles statistiques (~1GB par langue)
+- **N-gram:** ✅ Implémenté avec format compact et memory-mapping
 - **SpellChecker:** ✅ Intégré avec FST 370K mots EN + 34K mots FR + skip patterns disambiguation
+- **Complex Pattern Rules:** 🔶 DynamicPatternChecker implémenté (2,161 EN + 845 FR) avec suggestions dynamiques. Unification et transformations POS manquants.
 
 ---
 

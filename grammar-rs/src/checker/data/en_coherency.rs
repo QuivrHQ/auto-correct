@@ -1,5 +1,5 @@
 //! Auto-generated coherency pairs for EN from LanguageTool
-//! Synced: 2026-01-23T18:37:49.055786624+00:00
+//! Synced: 2026-01-24T12:08:47.202650+00:00
 //! Total pairs: 2479 (4958 unique words)
 //! DO NOT EDIT MANUALLY - Run `cargo run --bin sync-lt` to update
 //!

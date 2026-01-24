@@ -1,5 +1,5 @@
 //! Auto-generated hyphenated word list for FR from LanguageTool
-//! Synced: 2026-01-23T18:37:51.385668585+00:00
+//! Synced: 2026-01-24T12:08:49.195703+00:00
 //! Total words: 12290
 //! DO NOT EDIT MANUALLY - Run `cargo run --bin sync-lt` to update
 //!

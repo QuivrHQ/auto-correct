@@ -226,6 +226,45 @@ cargo run --bin sync-lt -- --extract-ngrams --language fr
 **Intégration:** Chargés dans les POS taggers via `tagger.load_from_lines()`
 **Impact:** Améliore la précision des règles POS comme `TOO_CARDINAL_NUMBER` et `NUMBER_OF_NNS`.
 
+## ✅ COMPLETED - Dynamic Pattern Checker (Complex Rules)
+**Description:** Checker pour règles complexes qui ne peuvent pas être compilées en code Rust statique.
+Supporte les fonctionnalités avancées de grammar.xml:
+- `regexp="yes"` - matching regex sur le texte des tokens
+- `postag_regexp="yes"` - matching regex sur les POS tags
+- `min/max` - tokens optionnels (min=0) ou répétés
+- `skip` - gap matching (N tokens entre deux éléments)
+- `antipatterns` - exceptions aux règles
+- `<match no="N">` - suggestions dynamiques avec références aux tokens matchés
+
+**Stats:**
+- EN: 2,161 règles complexes (599 avec suggestions dynamiques)
+- FR: 845 règles complexes (484 avec suggestions dynamiques)
+- Total: 3,006 règles supplémentaires (en plus des patterns simples)
+
+**Fichiers:**
+- `src/checker/dynamic_pattern_checker.rs` - Checker avec compilation regex au chargement
+- `src/checker/data/en_complex_patterns.json` - Règles EN sérialisées (~8 MB)
+- `src/checker/data/fr_complex_patterns.json` - Règles FR sérialisées (~3.5 MB)
+
+**Intégration:** `DynamicPatternChecker` dans les pipelines API EN et FR
+
+**Features:**
+- Chargement paresseux via `OnceLock` (compilation regex une seule fois)
+- Matching avec backtracking pour tokens optionnels
+- Support complet des antipatterns pour éviter faux positifs
+- **Suggestions dynamiques:** Références `\N` converties en tokens matchés
+- **Transformations regex:** `regexp_match`/`regexp_replace` sur texte des tokens
+- **Conversion de casse:** `alllower`, `allupper`, `startlower`, `startupper`
+- Génération automatique via `sync-lt.rs` (Phase 8)
+
+**Exemples de règles supportées:**
+- `CONFUSION_EST_ET` (FR) - Confusion est/et avec contexte POS
+- `TU_VERBE` (FR) - Conjugaison 2ème personne (tu pense → tu penses)
+- Règles avec regex sur tokens (mots multiples via `|`)
+- Suggestions calculées dynamiquement à partir des tokens matchés
+
+**Impact:** Augmente la couverture des règles grammar.xml de ~35% à ~70%
+
 ---
 
 # Features Différées

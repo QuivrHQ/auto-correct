@@ -1,5 +1,5 @@
 //! Auto-generated N-gram confusion words for EN from LanguageTool
-//! Synced: 2026-01-23T18:37:50.164046324+00:00
+//! Synced: 2026-01-24T12:08:47.760597+00:00
 //! Total: 6335 unique words
 //! DO NOT EDIT MANUALLY - Run `cargo run --bin sync-lt` to update
 //!

@@ -8,6 +8,8 @@ use grammar_rs::checker::{
     ContractionChecker, ContextChecker,
     PosPatternChecker, UncountableNounChecker, CompoundWordChecker,
     ProhibitChecker, SpellChecker, NgramConfusionChecker,
+    // Dynamic pattern checker for complex rules (regex, postag_regexp, skip, etc.)
+    create_en_dynamic_checker, create_fr_dynamic_checker,
     EN_PATTERN_RULES, FR_PATTERN_RULES,
     EN_REPLACE_RULES, FR_REPLACE_RULES,
     EN_ANTIPATTERNS, FR_ANTIPATTERNS,
@@ -195,7 +197,12 @@ impl AppState {
         // Compound word errors (air plane → airplane, well being → well-being)
         .with_checker(CompoundWordChecker::new())
         // Prohibited words (common misspellings that are always wrong)
-        .with_checker(ProhibitChecker::new());
+        .with_checker(ProhibitChecker::new())
+        // Dynamic pattern checker (complex rules with regex, postag_regexp, skip, etc.)
+        // 2110 additional rules from LanguageTool that can't be compiled to static code
+        .with_checker(create_en_dynamic_checker());
+
+        tracing::info!("EN dynamic pattern checker enabled ({} rules)", create_en_dynamic_checker().rule_count());
 
         // Spell checker (370K word FST dictionary + skip lists)
         if let Some(spell_checker) = Self::create_en_spell_checker() {
@@ -236,7 +243,12 @@ impl AppState {
         // Style checking (wordiness, redundancy) - 51 FR rules
         .with_checker(StyleChecker::french())
         // Compound word errors (aller retour → aller-retour)
-        .with_checker(CompoundWordChecker::french());
+        .with_checker(CompoundWordChecker::french())
+        // Dynamic pattern checker (complex rules with regex, postag_regexp, skip, etc.)
+        // 826 additional rules from LanguageTool that can't be compiled to static code
+        .with_checker(create_fr_dynamic_checker());
+
+        tracing::info!("FR dynamic pattern checker enabled ({} rules)", create_fr_dynamic_checker().rule_count());
 
         // Spell checker (34K word dictionary from FR_SPELLING + skip list)
         if let Some(spell_checker) = Self::create_fr_spell_checker() {

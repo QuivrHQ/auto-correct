@@ -1,5 +1,5 @@
 //! Auto-generated compound word rules for EN from LanguageTool
-//! Synced: 2026-01-23T18:37:49.231759141+00:00
+//! Synced: 2026-01-24T12:08:47.288384+00:00
 //! Total rules: 8540
 //! DO NOT EDIT MANUALLY - Run `cargo run --bin sync-lt` to update
 //!

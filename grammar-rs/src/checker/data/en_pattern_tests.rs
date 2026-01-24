@@ -1,5 +1,5 @@
 //! Auto-generated test examples for EN pattern rules from LanguageTool
-//! Synced: 2026-01-23T18:37:49.033123338+00:00
+//! Synced: 2026-01-24T12:08:47.188569+00:00
 //! Total examples: 638 (426 incorrect, 212 correct)
 //! DO NOT EDIT MANUALLY - Run `cargo run --bin sync-lt` to update
 //!

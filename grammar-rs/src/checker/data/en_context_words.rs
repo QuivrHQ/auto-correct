@@ -1,5 +1,5 @@
 //! Auto-generated context-sensitive word rules for EN from LanguageTool
-//! Synced: 2026-01-23T18:37:49.111786158+00:00
+//! Synced: 2026-01-24T12:08:47.231545+00:00
 //! Total rules: 11
 //! DO NOT EDIT MANUALLY - Run `cargo run --bin sync-lt` to update
 //!
